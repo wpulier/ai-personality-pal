@@ -31,30 +31,34 @@ export type SpotifyResult = SpotifySuccess | SpotifyError | SpotifyNotProvided;
 // Helper function to get the redirect URI based on the request host
 const getRedirectUri = (requestHost?: string) => {
   try {
-    // For local development, use localhost
-    if (process.env.NODE_ENV === 'development') {
+    // Handle local development environment specifically
+    if (process.env.NODE_ENV === 'development' || requestHost?.includes('localhost')) {
+      console.log('Using localhost redirect URI for development');
       return "http://localhost:3000/api/callback/spotify";
     }
     
-    // For production, use the registered production URI
-    return "https://ai-personality-pal.vercel.app/api/callback/spotify";
+    // For production environment with the specific deployment URL
+    if (requestHost?.includes('ai-personality-pal-tnoy.vercel.app')) {
+      console.log('Using tnoy.vercel.app redirect URI');
+      return "https://ai-personality-pal-tnoy.vercel.app/api/callback/spotify";
+    }
     
-    /* Original dynamic URI generation - commented out
+    // Fallback for any other hosts in production (not likely to be used but kept for safety)
     if (requestHost) {
       // Parse and reconstruct the URI to ensure it's properly formatted
       const sanitizedHost = requestHost
         .replace(/:[0-9]+$/, '') // Remove any port number
         .replace(/^https?:\/\//, ''); // Remove protocol if present
 
-      const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
+      const protocol = 'https'; // Always use HTTPS for production
       const redirectUri = `${protocol}://${sanitizedHost}/api/callback/spotify`;
-      console.log('Generating Spotify auth URL with redirect URI:', redirectUri);
+      console.log('Generating dynamic Spotify redirect URI:', redirectUri);
       return redirectUri;
     }
-
-    console.warn('No host provided, using development redirect URI');
-    return process.env.SPOTIFY_REDIRECT_URI || 'http://localhost:3000/api/callback/spotify';
-    */
+    
+    // Ultimate fallback - should not reach here if requestHost is provided
+    console.log('No host detected, using default production redirect URI');
+    return "https://ai-personality-pal-tnoy.vercel.app/api/callback/spotify";
   } catch (error) {
     console.error('Error generating redirect URI:', error);
     throw error;
@@ -133,13 +137,15 @@ export class SpotifyClient {
   /**
    * Generate Spotify authorization URL
    */
-  getAuthUrl(state?: string): string {
+  getAuthUrl(state?: string, requestHost?: string): string {
     if (!SPOTIFY_CLIENT_ID) {
       throw new Error('SPOTIFY_CLIENT_ID is not configured');
     }
 
     try {
-      const redirectUri = getRedirectUri();
+      // Use request host if provided
+      const redirectUri = getRedirectUri(requestHost);
+      console.log('Generating Spotify auth URL with redirect URI:', redirectUri);
       
       const scopes = [
         'user-read-recently-played',
@@ -166,12 +172,12 @@ export class SpotifyClient {
    * Get access token from authorization code
    * Caches tokens to avoid unnecessary requests
    */
-  async getAccessToken(code: string): Promise<string> {
+  async getAccessToken(code: string, requestHost?: string): Promise<string> {
     if (!SPOTIFY_CLIENT_ID || !SPOTIFY_CLIENT_SECRET) {
       throw new Error('Spotify credentials are not configured');
     }
     
-    const redirectUri = getRedirectUri();
+    const redirectUri = getRedirectUri(requestHost);
     console.log('Getting access token with redirect URI:', redirectUri);
 
     try {

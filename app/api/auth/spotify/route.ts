@@ -7,6 +7,20 @@ export async function GET(request: NextRequest) {
     const userId = searchParams.get('userId');
     const redirect = searchParams.get('redirect');
     
+    // Get the host from the request URL with more detailed logging
+    const host = request.headers.get('host') || request.nextUrl.hostname;
+    const fullUrl = request.url;
+    console.log('Spotify Auth Request Details:', {
+      host,
+      fullUrl,
+      headers: {
+        host: request.headers.get('host'),
+        origin: request.headers.get('origin'),
+        referer: request.headers.get('referer')
+      },
+      environment: process.env.NODE_ENV || 'unknown'
+    });
+    
     // Generate state parameter with additional information
     const state = userId 
       ? userId 
@@ -14,8 +28,8 @@ export async function GET(request: NextRequest) {
         ? 'home'
         : 'unknown';
     
-    // Generate the authorization URL with state
-    const authUrl = spotifyClient.getAuthUrl(state);
+    // Generate the authorization URL with state and host
+    const authUrl = spotifyClient.getAuthUrl(state, host);
     
     // Redirect to Spotify authorization
     return NextResponse.redirect(authUrl);

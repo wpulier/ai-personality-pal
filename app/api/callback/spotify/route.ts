@@ -11,14 +11,35 @@ export async function GET(request: NextRequest) {
   const error = searchParams.get('error');
   const state = searchParams.get('state');
   
+  // Log error if present
+  if (error) {
+    console.error('Spotify callback error from query params:', error);
+  }
+  
   // If there's an error or no code, redirect to the error page
   if (error || !code) {
     return NextResponse.redirect(new URL(`/?error=${error || 'No authorization code provided'}`, request.url));
   }
   
   try {
+    // Get the host from the request URL with more detailed logging
+    const host = request.headers.get('host') || request.nextUrl.hostname;
+    const fullUrl = request.url;
+    console.log('Spotify Callback Request Details:', {
+      host,
+      fullUrl,
+      code: code ? `${code.substring(0, 5)}...` : 'missing', // Log first few chars for debugging
+      state,
+      headers: {
+        host: request.headers.get('host'),
+        origin: request.headers.get('origin'),
+        referer: request.headers.get('referer')
+      },
+      environment: process.env.NODE_ENV || 'unknown'
+    });
+    
     // Exchange the authorization code for an access token
-    const accessToken = await spotifyClient.getAccessToken(code);
+    const accessToken = await spotifyClient.getAccessToken(code, host);
     
     // Get the user's Spotify data using the access token
     const spotifyData = await spotifyClient.getUserData(accessToken);
