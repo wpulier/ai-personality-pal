@@ -1,7 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { UserForm } from "@/components/user-form";
+
+// Loading fallback component
+function FormSkeleton() {
+  return (
+    <div className="animate-pulse">
+      <div className="h-12 bg-gray-200 rounded mb-4"></div>
+      <div className="h-32 bg-gray-200 rounded mb-4"></div>
+      <div className="h-12 bg-gray-200 rounded"></div>
+    </div>
+  );
+}
 
 export default function Home() {
   const [error, setError] = useState<string | null>(null);
@@ -21,7 +32,9 @@ export default function Home() {
                 {error}
               </div>
             )}
-            <UserForm onError={setError} />
+            <Suspense fallback={<FormSkeleton />}>
+              <UserForm onError={setError} />
+            </Suspense>
           </div>
         </div>
       </div>
