@@ -69,7 +69,7 @@ Based on this information, create a response in this JSON format:
 
     try {
       return JSON.parse(content);
-    } catch (error) {
+    } catch (_) {
       throw new Error("Failed to parse OpenAI response as JSON");
     }
   } catch (error) {

@@ -150,7 +150,7 @@ export default function ChatPage() {
         <div className="max-w-md w-full bg-yellow-50 p-6 rounded-lg text-center">
           <div className="text-yellow-600 font-bold mb-2">Twin Not Found</div>
           <div className="text-gray-800 mb-4">
-            We couldn't find the digital twin you're looking for.
+            We couldn&apos;t find the digital twin you&apos;re looking for.
           </div>
           <Link href="/" className="text-blue-600 hover:underline">
             Return to Home
