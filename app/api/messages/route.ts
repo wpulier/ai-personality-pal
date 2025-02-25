@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import { insertMessageSchema, messages, users } from '@/lib/db/schema';
 import { streamChatResponse } from '@/lib/services/openai';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, desc } from 'drizzle-orm';
 import { ZodError } from 'zod';
 
 export async function GET(request: NextRequest) {

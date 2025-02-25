@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 
 interface Message {
@@ -25,7 +25,6 @@ interface User {
 
 export default function ChatPage() {
   const params = useParams();
-  const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -167,7 +166,7 @@ export default function ChatPage() {
       <header className="bg-white shadow-sm py-4 px-6 flex justify-between items-center">
         <div className="flex items-center">
           <div className="ml-2">
-            <h1 className="text-xl font-semibold">{user.name}'s Digital Twin</h1>
+            <h1 className="text-xl font-semibold">{user.name}&apos;s Digital Twin</h1>
             <p className="text-sm text-gray-500">Based on your personality and preferences</p>
           </div>
         </div>
