@@ -4,7 +4,8 @@ import { z } from "zod";
 export interface Rating {
   title: string;
   rating: string;
-  year: string;
+  year?: string;
+  url?: string;
 }
 
 export interface Track {

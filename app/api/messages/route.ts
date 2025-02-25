@@ -109,7 +109,8 @@ export async function POST(request: NextRequest) {
     const aiResponse = await streamChatResponse(
       validatedData.userId, 
       validatedData.content, 
-      chatHistory
+      chatHistory,
+      user
     );
     
     // Process the response

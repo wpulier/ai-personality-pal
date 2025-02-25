@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { FaSpotify } from 'react-icons/fa';
 
 interface UserFormProps {
   onError?: (error: string | null) => void;
@@ -9,15 +10,42 @@ interface UserFormProps {
 
 export function UserForm({ onError }: UserFormProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [name, setName] = useState('Anonymous');
   const [bio, setBio] = useState('');
   const [letterboxdUrl, setLetterboxdUrl] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [spotifyStatus, setSpotifyStatus] = useState<'not_connected' | 'connected' | 'error'>('not_connected');
+  const [spotifyData, setSpotifyData] = useState<any>(null);
   const [validationErrors, setValidationErrors] = useState<{
     name?: string;
     bio?: string;
     letterboxdUrl?: string;
   }>({});
+
+  // Check URL parameters on component mount to see if returning from Spotify auth
+  useEffect(() => {
+    const spotifySuccess = searchParams.get('spotify');
+    const spotifyError = searchParams.get('error');
+    const spotifyDataParam = searchParams.get('spotifyData');
+    
+    if (spotifySuccess === 'success' && spotifyDataParam) {
+      try {
+        // Decode and parse the Spotify data from URL
+        const decodedData = JSON.parse(decodeURIComponent(spotifyDataParam));
+        setSpotifyData(decodedData);
+        setSpotifyStatus('connected');
+        onError?.('Spotify connected successfully!');
+      } catch (e) {
+        console.error('Error parsing Spotify data:', e);
+        setSpotifyStatus('error');
+        onError?.('Error connecting Spotify: Invalid data format');
+      }
+    } else if (spotifyError) {
+      setSpotifyStatus('error');
+      onError?.(`Error connecting Spotify: ${spotifyError}`);
+    }
+  }, [searchParams, onError]);
 
   const validateForm = () => {
     const errors: {
@@ -64,7 +92,8 @@ export function UserForm({ onError }: UserFormProps) {
         body: JSON.stringify({
           name: name || 'Anonymous',
           bio,
-          letterboxdUrl: letterboxdUrl || undefined
+          letterboxdUrl: letterboxdUrl || undefined,
+          spotifyData: spotifyData || undefined
         }),
       });
       
@@ -119,7 +148,7 @@ export function UserForm({ onError }: UserFormProps) {
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Enter your name or leave as Anonymous"
-          className={`w-full rounded-md border ${validationErrors.name ? 'border-red-500' : 'border-gray-300'} px-3 py-2 text-sm`}
+          className={`w-full rounded-md border ${validationErrors.name ? 'border-red-500' : 'border-gray-300'} px-3 py-2 text-black placeholder:text-gray-400`}
           disabled={isSubmitting}
         />
         {validationErrors.name && (
@@ -136,7 +165,7 @@ export function UserForm({ onError }: UserFormProps) {
           value={bio}
           onChange={(e) => setBio(e.target.value)}
           placeholder="Share a brief description about yourself (at least 3 characters)..."
-          className={`w-full rounded-md border ${validationErrors.bio ? 'border-red-500' : 'border-gray-300'} px-3 py-2 text-sm min-h-[120px]`}
+          className={`w-full rounded-md border ${validationErrors.bio ? 'border-red-500' : 'border-gray-300'} px-3 py-2 text-black placeholder:text-gray-400 min-h-[120px]`}
           disabled={isSubmitting}
         />
         {validationErrors.bio && (
@@ -154,12 +183,40 @@ export function UserForm({ onError }: UserFormProps) {
           value={letterboxdUrl}
           onChange={(e) => setLetterboxdUrl(e.target.value)}
           placeholder="https://letterboxd.com/yourusername"
-          className={`w-full rounded-md border ${validationErrors.letterboxdUrl ? 'border-red-500' : 'border-gray-300'} px-3 py-2 text-sm`}
+          className={`w-full rounded-md border ${validationErrors.letterboxdUrl ? 'border-red-500' : 'border-gray-300'} px-3 py-2 text-black placeholder:text-gray-400`}
           disabled={isSubmitting}
         />
         {validationErrors.letterboxdUrl && (
           <p className="text-red-500 text-xs mt-1">{validationErrors.letterboxdUrl}</p>
         )}
+      </div>
+      
+      <div className="space-y-2">
+        <label className="block text-sm font-medium text-gray-700">
+          Spotify Music Preferences (Optional)
+        </label>
+        <div className="w-full flex items-center justify-between p-3 border border-gray-300 rounded-md bg-gray-50">
+          {spotifyStatus === 'connected' ? (
+            <div className="flex items-center text-green-700">
+              <FaSpotify className="mr-2" size={20} />
+              <span className="font-medium">Spotify Connected</span>
+              <span className="ml-2 text-xs text-gray-500">
+                ({spotifyData?.topArtists?.length || 0} artists, {spotifyData?.recentTracks?.length || 0} tracks)
+              </span>
+            </div>
+          ) : (
+            <div className="w-full flex items-center justify-between">
+              <span className="text-gray-500 text-sm">Connect your Spotify account to enhance your twin's music preferences</span>
+              <a 
+                href="/api/auth/spotify?redirect=home"
+                className="flex-shrink-0 flex items-center justify-center py-2 px-4 bg-green-600 hover:bg-green-700 text-white rounded-full transition-colors text-sm font-medium"
+              >
+                <FaSpotify className="mr-2" size={16} />
+                {spotifyStatus === 'error' ? 'Retry Connection' : 'Connect Spotify'}
+              </a>
+            </div>
+          )}
+        </div>
       </div>
       
       <button
