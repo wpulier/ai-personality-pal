@@ -4,7 +4,12 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 interface UserFormProps {
-  onError?: (error: string) => void;
+  onError?: (error: string | null) => void;
+}
+
+interface ValidationError {
+  path: string[];
+  message: string;
 }
 
 export function UserForm({ onError }: UserFormProps) {
@@ -13,18 +18,54 @@ export function UserForm({ onError }: UserFormProps) {
   const [bio, setBio] = useState('');
   const [letterboxdUrl, setLetterboxdUrl] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<{
+    name?: string;
+    bio?: string;
+    letterboxdUrl?: string;
+  }>({});
+
+  const validateForm = () => {
+    const errors: {
+      name?: string;
+      bio?: string;
+      letterboxdUrl?: string;
+    } = {};
+    let isValid = true;
+
+    // Validate name
+    if (!name.trim()) {
+      errors.name = 'Name is required';
+      isValid = false;
+    }
+
+    // Validate bio - must be at least 3 characters
+    if (!bio.trim()) {
+      errors.bio = 'Bio is required';
+      isValid = false;
+    } else if (bio.trim().length < 3) {
+      errors.bio = 'Bio must be at least 3 characters';
+      isValid = false;
+    }
+
+    // Validate letterboxdUrl if provided
+    if (letterboxdUrl && !letterboxdUrl.startsWith('https://letterboxd.com/')) {
+      errors.letterboxdUrl = 'Must be a valid Letterboxd URL';
+      isValid = false;
+    }
+
+    setValidationErrors(errors);
+    return isValid;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Basic validation
-    if (!name.trim()) {
-      onError?.('Please enter your name');
-      return;
-    }
+    // Clear previous errors
+    setValidationErrors({});
+    onError?.(null);
     
-    if (!bio.trim()) {
-      onError?.('Please enter a brief bio');
+    // Validate form
+    if (!validateForm()) {
       return;
     }
     
@@ -44,7 +85,18 @@ export function UserForm({ onError }: UserFormProps) {
       });
       
       if (!response.ok) {
-        throw new Error('Failed to create digital twin');
+        const errorData = await response.json();
+        if (errorData.details) {
+          // Handle validation errors from the server
+          const serverErrors = errorData.details.reduce((acc: Record<string, string>, error: ValidationError) => {
+            acc[error.path[0]] = error.message;
+            return acc;
+          }, {});
+          setValidationErrors(serverErrors);
+          throw new Error('Please fix the validation errors');
+        } else {
+          throw new Error(errorData.error || 'Failed to create digital twin');
+        }
       }
       
       const data = await response.json();
@@ -69,9 +121,12 @@ export function UserForm({ onError }: UserFormProps) {
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Enter your name"
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+          className={`w-full rounded-md border ${validationErrors.name ? 'border-red-500' : 'border-gray-300'} px-3 py-2 text-sm`}
           disabled={isSubmitting}
         />
+        {validationErrors.name && (
+          <p className="text-red-500 text-xs mt-1">{validationErrors.name}</p>
+        )}
       </div>
       
       <div className="space-y-2">
@@ -84,9 +139,12 @@ export function UserForm({ onError }: UserFormProps) {
           value={letterboxdUrl}
           onChange={(e) => setLetterboxdUrl(e.target.value)}
           placeholder="https://letterboxd.com/yourusername"
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+          className={`w-full rounded-md border ${validationErrors.letterboxdUrl ? 'border-red-500' : 'border-gray-300'} px-3 py-2 text-sm`}
           disabled={isSubmitting}
         />
+        {validationErrors.letterboxdUrl && (
+          <p className="text-red-500 text-xs mt-1">{validationErrors.letterboxdUrl}</p>
+        )}
       </div>
       
       <div className="space-y-2">
@@ -98,9 +156,12 @@ export function UserForm({ onError }: UserFormProps) {
           value={bio}
           onChange={(e) => setBio(e.target.value)}
           placeholder="Share a brief description about yourself, your interests, personality traits, or anything that defines you..."
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm min-h-[120px]"
+          className={`w-full rounded-md border ${validationErrors.bio ? 'border-red-500' : 'border-gray-300'} px-3 py-2 text-sm min-h-[120px]`}
           disabled={isSubmitting}
         />
+        {validationErrors.bio && (
+          <p className="text-red-500 text-xs mt-1">{validationErrors.bio}</p>
+        )}
       </div>
       
       <div className="p-4 bg-gray-100 rounded-lg mb-4">

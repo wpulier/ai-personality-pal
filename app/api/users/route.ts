@@ -46,54 +46,59 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     
     // Validate the request body against the schema
-    const validatedData = insertUserSchema.parse(body);
-    
-    // Process Letterboxd data if provided
-    const letterboxdData: {
-      status: 'success' | 'error' | 'not_provided';
-      recentRatings?: Rating[];
-      favoriteGenres?: string[];
-      favoriteFilms?: string[];
-    } = body.letterboxdUrl 
-      ? { status: 'success' as const, recentRatings: [] } // This would be replaced with actual API call
-      : { status: 'not_provided' as const };
-    
-    // Process Spotify data if provided
-    const spotifyData: {
-      status: 'success' | 'error' | 'not_provided';
-      topArtists?: string[];
-      topGenres?: string[];
-      recentTracks?: Track[];
-    } = body.spotifyUrl
-      ? { status: 'success' as const, topArtists: [] } // This would be replaced with actual API call
-      : { status: 'not_provided' as const };
-    
-    // Generate twin personality
-    const twinPersonality = await generateTwinPersonality(
-      validatedData.bio,
-      letterboxdData,
-      spotifyData
-    );
-    
-    // Create the user with the generated personality
-    const newUser = await db.insert(users).values({
-      ...validatedData,
-      letterboxdData,
-      spotifyData,
-      twinPersonality
-    }).returning();
-    
-    return NextResponse.json(newUser[0], { status: 201 });
+    try {
+      const validatedData = insertUserSchema.parse(body);
+      
+      // Process Letterboxd data if provided
+      const letterboxdData: {
+        status: 'success' | 'error' | 'not_provided';
+        recentRatings?: Rating[];
+        favoriteGenres?: string[];
+        favoriteFilms?: string[];
+      } = body.letterboxdUrl 
+        ? { status: 'success' as const, recentRatings: [] } // This would be replaced with actual API call
+        : { status: 'not_provided' as const };
+      
+      // Process Spotify data if provided
+      const spotifyData: {
+        status: 'success' | 'error' | 'not_provided';
+        topArtists?: string[];
+        topGenres?: string[];
+        recentTracks?: Track[];
+      } = body.spotifyUrl
+        ? { status: 'success' as const, topArtists: [] } // This would be replaced with actual API call
+        : { status: 'not_provided' as const };
+      
+      // Generate twin personality
+      const twinPersonality = await generateTwinPersonality(
+        validatedData.bio,
+        letterboxdData,
+        spotifyData
+      );
+      
+      // Create the user with the generated personality
+      const newUser = await db.insert(users).values({
+        ...validatedData,
+        letterboxdData,
+        spotifyData,
+        twinPersonality
+      }).returning();
+      
+      return NextResponse.json(newUser[0], { status: 201 });
+    } catch (validationError) {
+      if (validationError instanceof ZodError) {
+        console.log('Validation error:', validationError.errors);
+        return NextResponse.json({ 
+          error: 'Validation error', 
+          details: validationError.errors 
+        }, { status: 400 });
+      }
+      throw validationError; // Re-throw if it's not a ZodError
+    }
   } catch (error) {
     console.error('Error creating user:', error);
-    
-    if (error instanceof ZodError) {
-      return NextResponse.json({ 
-        error: 'Validation error', 
-        details: error.errors 
-      }, { status: 400 });
-    }
-    
-    return NextResponse.json({ error: 'Failed to create user' }, { status: 500 });
+    return NextResponse.json({ 
+      error: error instanceof Error ? error.message : 'Failed to create user'
+    }, { status: 500 });
   }
 } 
