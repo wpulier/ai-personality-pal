@@ -188,6 +188,11 @@ export default function ChatPage() {
         } else {
           const messagesData = await messagesResponse.json();
           setMessages(messagesData);
+          
+          // If there are no messages, we'll generate a first message
+          if (messagesData.length === 0) {
+            generateFirstMessage(userData.id);
+          }
         }
       } catch (err) {
         console.error('Error in chat page:', err);
@@ -199,6 +204,41 @@ export default function ChatPage() {
 
     fetchData();
   }, [params.id]);
+
+  // Function to generate the first message
+  const generateFirstMessage = async (userId: number) => {
+    // Show typing indicator
+    setIsTyping(true);
+    
+    try {
+      // Simple POST request to generate a first message
+      const response = await fetch('/api/messages/first', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Add the message to the UI
+        setMessages([{
+          id: data.id,
+          content: data.content,
+          isUser: false,
+          createdAt: data.createdAt
+        }]);
+      } else {
+        console.error('Failed to generate first message');
+      }
+    } catch (error) {
+      console.error('Error generating first message:', error);
+    } finally {
+      setIsTyping(false);
+    }
+  };
 
   // Focus input field when page loads
   useEffect(() => {
