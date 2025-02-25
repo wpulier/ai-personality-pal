@@ -315,44 +315,73 @@ export async function fetchLetterboxdData(usernameOrUrl: string): Promise<{
       }
       
       // Extract favorite films
-      if (favoriteFilms.length === 0) {
+      if (favoriteFilms.length === 0 || hasFavoriteFilmsSection) {
         console.log('Extracting films from profile');
-        // Try favorite films section first
-        $('.favourite-films .film-poster').each((_, element) => {
+        
+        // Clear the existing favorite films if we have a dedicated section
+        if (hasFavoriteFilmsSection) {
+          console.log('Found dedicated favorite films section, prioritizing these films');
+          favoriteFilms.splice(0, favoriteFilms.length); // Clear the array without reassignment
+        }
+        
+        // Try favorite films section first with improved selectors
+        let foundFavoriteFilms = false;
+        
+        // Direct selector for the "FAVORITE FILMS" section we can see in the screenshot
+        $('h3:contains("FAVORITE FILMS"), h2:contains("FAVORITE FILMS")').next().find('img').each((_, element) => {
           const filmTitle = $(element).attr('alt')?.trim();
           if (filmTitle && !favoriteFilms.includes(filmTitle)) {
             favoriteFilms.push(filmTitle);
+            foundFavoriteFilms = true;
+            console.log('Found favorite film from direct selector:', filmTitle);
           }
         });
         
-        // If still empty, try popular films section
-        if (favoriteFilms.length === 0) {
-          $('.popular-films .film-poster').each((_, element) => {
+        // If we didn't find any with the direct selector, try the other selectors
+        if (!foundFavoriteFilms) {
+          $('.favourite-films .poster img, .favourite-films .film-poster, .favourite-films img.image, section.films-likes .poster img, .profile-films .poster img').each((_, element) => {
             const filmTitle = $(element).attr('alt')?.trim();
             if (filmTitle && !favoriteFilms.includes(filmTitle)) {
               favoriteFilms.push(filmTitle);
+              foundFavoriteFilms = true;
+              console.log('Found favorite film from profile:', filmTitle);
             }
           });
         }
         
-        // If still empty, try another selector pattern
-        if (favoriteFilms.length === 0) {
-          $('div[data-film-id] img.image').each((_, element) => {
-            const filmTitle = $(element).attr('alt')?.trim();
-            if (filmTitle && !favoriteFilms.includes(filmTitle)) {
-              favoriteFilms.push(filmTitle);
-            }
-          });
-        }
-        
-        // Finally, look for any film posters
-        if (favoriteFilms.length === 0) {
-          $('img.poster').each((_, element) => {
-            const filmTitle = $(element).attr('alt')?.trim();
-            if (filmTitle && !favoriteFilms.includes(filmTitle)) {
-              favoriteFilms.push(filmTitle);
-            }
-          });
+        // If we found films in the favorite section, don't fall back to other sections
+        if (foundFavoriteFilms) {
+          console.log('Successfully extracted favorite films from profile');
+        } else {
+          // If still empty, try popular films section
+          if (favoriteFilms.length === 0) {
+            $('.popular-films .film-poster, .popular-films img.image').each((_, element) => {
+              const filmTitle = $(element).attr('alt')?.trim();
+              if (filmTitle && !favoriteFilms.includes(filmTitle)) {
+                favoriteFilms.push(filmTitle);
+              }
+            });
+          }
+          
+          // If still empty, try another selector pattern
+          if (favoriteFilms.length === 0) {
+            $('div[data-film-id] img.image').each((_, element) => {
+              const filmTitle = $(element).attr('alt')?.trim();
+              if (filmTitle && !favoriteFilms.includes(filmTitle)) {
+                favoriteFilms.push(filmTitle);
+              }
+            });
+          }
+          
+          // Finally, look for any film posters
+          if (favoriteFilms.length === 0) {
+            $('img.poster').each((_, element) => {
+              const filmTitle = $(element).attr('alt')?.trim();
+              if (filmTitle && !favoriteFilms.includes(filmTitle)) {
+                favoriteFilms.push(filmTitle);
+              }
+            });
+          }
         }
       }
       
