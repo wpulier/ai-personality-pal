@@ -2,8 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import { insertMessageSchema, messages, users } from '@/lib/db/schema';
 import { streamChatResponse } from '@/lib/services/openai';
-import { eq, desc } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { ZodError } from 'zod';
+
+// Add a role field to the response to indicate whether a message is from user or AI
+interface MessageWithRole {
+  id: number;
+  userId: number;
+  content: string;
+  createdAt: Date | string; // Allow both Date and string types
+  isUser: boolean; // This is added in memory, not from the database
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -25,10 +34,27 @@ export async function GET(request: NextRequest) {
     // Get messages for the specific user
     const userMessages = await db.query.messages.findMany({
       where: eq(messages.userId, userIdNum),
-      orderBy: [desc(messages.createdAt)]
+      orderBy: [messages.createdAt]
     });
     
-    return NextResponse.json(userMessages);
+    // We need to alternate between user and AI messages
+    // Start with assuming the first message is from the user
+    let lastWasUser = false;
+    
+    // Convert to MessageWithRole type with alternating isUser field
+    const messagesWithRole: MessageWithRole[] = userMessages.map((msg, index) => {
+      // Alternate between user and AI, starting with user
+      // This is a temporary solution until we update the database schema
+      const isUser = index % 2 === 0;
+      lastWasUser = isUser;
+      
+      return {
+        ...msg,
+        isUser
+      };
+    });
+    
+    return NextResponse.json(messagesWithRole);
   } catch (error) {
     console.error('Error fetching messages:', error);
     return NextResponse.json({ error: 'Failed to fetch messages' }, { status: 500 });
@@ -45,22 +71,28 @@ export async function POST(request: NextRequest) {
     
     // Save the user's message
     const userMessage = await db.insert(messages).values({
-      ...validatedData,
-      isUser: true
+      userId: validatedData.userId,
+      content: validatedData.content
     }).returning();
     
     // Get previous messages for context (limited to last 10)
     const previousMessages = await db.query.messages.findMany({
       where: eq(messages.userId, validatedData.userId),
-      orderBy: [desc(messages.createdAt)],
+      orderBy: [messages.createdAt],
       limit: 10
     });
     
-    // Format messages for OpenAI
-    const chatHistory = previousMessages.reverse().map(msg => ({
+    // Format messages for OpenAI - alternate between user and AI
+    const chatHistory = previousMessages.map((msg, index) => ({
       content: msg.content,
-      isUser: msg.isUser
+      isUser: index % 2 === 0 // Alternate, starting with user
     }));
+    
+    // Add the current message
+    chatHistory.push({
+      content: validatedData.content,
+      isUser: true
+    });
     
     // Get user details for personality context
     const user = await db.query.users.findFirst({
@@ -71,17 +103,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
     
-    // Stream is not directly supported in Next.js API routes
-    // For a real implementation, use a streaming response or WebSocket
-    // This is a simplified example
+    console.log('Using twin personality for response:', user.twinPersonality);
+    
+    // Generate AI response
     const aiResponse = await streamChatResponse(
       validatedData.userId, 
       validatedData.content, 
-      chatHistory
+      chatHistory,
+      user
     );
     
-    // In a real implementation, you'd process the stream
-    // Here we're just collecting the first response
+    // Process the response
     let responseText = '';
     for await (const chunk of aiResponse) {
       responseText += chunk.choices[0]?.delta?.content || '';
@@ -90,14 +122,16 @@ export async function POST(request: NextRequest) {
     // Save the AI response
     const assistantMessage = await db.insert(messages).values({
       userId: validatedData.userId,
-      content: responseText,
-      isUser: false
+      content: responseText
     }).returning();
     
-    return NextResponse.json({
-      userMessage: userMessage[0],
-      assistantMessage: assistantMessage[0]
-    }, { status: 201 });
+    // Add isUser field to the response (not saved in DB)
+    const responseWithRoles = {
+      userMessage: { ...userMessage[0], isUser: true },
+      assistantMessage: { ...assistantMessage[0], isUser: false }
+    };
+    
+    return NextResponse.json(responseWithRoles, { status: 201 });
   } catch (error) {
     console.error('Error processing message:', error);
     

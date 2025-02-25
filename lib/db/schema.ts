@@ -4,7 +4,8 @@ import { z } from "zod";
 export interface Rating {
   title: string;
   rating: string;
-  year: string;
+  year?: string;
+  url?: string;
 }
 
 export interface Track {
@@ -39,14 +40,12 @@ export const users = pgTable("users", {
     traits: string[];
     summary: string;
   }>(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const messages = pgTable("messages", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id),
   content: text("content").notNull(),
-  isUser: boolean("is_user").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
