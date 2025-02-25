@@ -54,6 +54,7 @@ export function UserForm({ onError }: UserFormProps) {
     
     try {
       setIsSubmitting(true);
+      onError?.("Creating your digital twin... This may take a moment.");
       
       const response = await fetch('/api/users', {
         method: 'POST',
@@ -69,7 +70,12 @@ export function UserForm({ onError }: UserFormProps) {
       
       if (response.ok) {
         const data = await response.json();
-        router.push(`/chat/${data.id}`);
+        onError?.("Twin created successfully! Redirecting to chat...");
+        
+        // Short delay to show success message before redirect
+        setTimeout(() => {
+          router.push(`/chat/${data.id}`);
+        }, 1000);
       } else {
         // Generic error handling
         const errorData = await response.json();

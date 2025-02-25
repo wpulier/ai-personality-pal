@@ -39,7 +39,6 @@ export const users = pgTable("users", {
     traits: string[];
     summary: string;
   }>(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const messages = pgTable("messages", {

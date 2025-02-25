@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
-import { insertUserSchema, users, Rating, Track } from '@/lib/db/schema';
+import { insertUserSchema, users } from '@/lib/db/schema';
 import { generateTwinPersonality } from '@/lib/services/openai';
 import { eq } from 'drizzle-orm';
 import { ZodError } from 'zod';
@@ -81,16 +81,20 @@ export async function POST(request: NextRequest) {
           interests: ["movies", "music", "storytelling", "arts", "entertainment"],
           style: "friendly, conversational, and thoughtful",
           traits: ["creative", "analytical", "curious", "adaptable", "reflective"],
-          summary: "A thoughtful individual with varied interests in movies and music, particularly drawn to meaningful stories and creative expression."
+          summary: `A thoughtful individual who enjoys movies and music. ${validatedData.bio.length > 20 ? 'Their bio suggests they value self-expression and meaningful connections.' : 'They seem to value concise communication.'}`
         };
       }
       
-      // Connect to database
+      // Connect to database - get this connection after the personality generation
+      // to minimize connection time
       const db = getDb();
       
       // Create the user with the generated personality
       const newUser = await db.insert(users).values({
-        ...validatedData,
+        name: validatedData.name || 'Anonymous',
+        bio: validatedData.bio,
+        letterboxdUrl: validatedData.letterboxdUrl || null,
+        spotifyUrl: validatedData.spotifyUrl || null,
         letterboxdData,
         spotifyData,
         twinPersonality
