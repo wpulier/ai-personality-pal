@@ -1,5 +1,4 @@
-import { pgTable, text, serial, integer, json, timestamp } from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
+import { pgTable, text, serial, integer, json, timestamp, boolean } from "drizzle-orm/pg-core";
 import { z } from "zod";
 
 export interface Rating {
@@ -51,14 +50,18 @@ export const messages = pgTable("messages", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// Schema validation
-export const insertUserSchema = createInsertSchema(users, {
+// Simple schema validation without drizzle-zod
+export const insertUserSchema = z.object({
+  name: z.string().default('Anonymous'),
   bio: z.string().min(3, "Bio must be at least 3 characters"),
   letterboxdUrl: z.string().url("Invalid URL").optional().nullable(),
   spotifyUrl: z.string().url("Invalid URL").optional().nullable(),
 });
 
-export const insertMessageSchema = createInsertSchema(messages);
+export const insertMessageSchema = z.object({
+  userId: z.number().int().positive(),
+  content: z.string().min(1),
+});
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type InsertMessage = z.infer<typeof insertMessageSchema>; 
