@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
-import { insertUserSchema, users } from '@/lib/db/schema';
+import { insertUserSchema, users, Rating, Track } from '@/lib/db/schema';
 import { generateTwinPersonality } from '@/lib/services/openai';
 import { eq } from 'drizzle-orm';
 import { ZodError } from 'zod';
@@ -49,14 +49,24 @@ export async function POST(request: NextRequest) {
     const validatedData = insertUserSchema.parse(body);
     
     // Process Letterboxd data if provided
-    const letterboxdData = body.letterboxdUrl 
-      ? { status: 'success', recentRatings: [] } // This would be replaced with actual API call
-      : { status: 'not_provided' };
+    const letterboxdData: {
+      status: 'success' | 'error' | 'not_provided';
+      recentRatings?: Rating[];
+      favoriteGenres?: string[];
+      favoriteFilms?: string[];
+    } = body.letterboxdUrl 
+      ? { status: 'success' as const, recentRatings: [] } // This would be replaced with actual API call
+      : { status: 'not_provided' as const };
     
     // Process Spotify data if provided
-    const spotifyData = body.spotifyUrl
-      ? { status: 'success', topArtists: [] } // This would be replaced with actual API call
-      : { status: 'not_provided' };
+    const spotifyData: {
+      status: 'success' | 'error' | 'not_provided';
+      topArtists?: string[];
+      topGenres?: string[];
+      recentTracks?: Track[];
+    } = body.spotifyUrl
+      ? { status: 'success' as const, topArtists: [] } // This would be replaced with actual API call
+      : { status: 'not_provided' as const };
     
     // Generate twin personality
     const twinPersonality = await generateTwinPersonality(
