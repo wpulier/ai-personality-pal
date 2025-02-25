@@ -82,6 +82,28 @@ export default function ChatPage() {
     return () => window.removeEventListener('resize', checkIfMobile);
   }, []);
 
+  // Add meta viewport tag to prevent unwanted zooming on iOS
+  useEffect(() => {
+    // Find existing viewport meta tag or create a new one
+    let viewportMeta = document.querySelector('meta[name="viewport"]') as HTMLMetaElement;
+    
+    if (!viewportMeta) {
+      viewportMeta = document.createElement('meta') as HTMLMetaElement;
+      viewportMeta.name = 'viewport';
+      document.head.appendChild(viewportMeta);
+    }
+    
+    // Set viewport properties that prevent automatic zooming while still allowing manual zoom
+    viewportMeta.content = 'width=device-width, initial-scale=1, maximum-scale=1';
+    
+    // Reset viewport on unmount to not affect other pages
+    return () => {
+      if (viewportMeta) {
+        viewportMeta.content = 'width=device-width, initial-scale=1';
+      }
+    };
+  }, []);
+
   // Helper to render rating stars based on numeric rating
   const getRatingStars = (rating: number) => {
     if (!rating) return 'Not rated';
@@ -594,7 +616,7 @@ export default function ChatPage() {
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             placeholder="Type your message..."
-            className="flex-1 border border-gray-300 rounded-full px-3 py-2 md:px-4 md:py-3 text-black focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent placeholder:text-gray-400 text-sm md:text-base"
+            className="flex-1 border border-gray-300 rounded-full px-3 py-2 md:px-4 md:py-3 text-black focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent placeholder:text-gray-400 text-[16px] md:text-base"
           />
           <button 
             type="submit" 
