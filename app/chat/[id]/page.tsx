@@ -312,6 +312,42 @@ export default function ChatPage() {
               <>
                 <p className="text-gray-700 mb-4">{user.twinPersonality.summary}</p>
                 
+                {/* Display personality traits and style */}
+                <div className="mb-4 p-4 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg">
+                  {user.twinPersonality.interests && user.twinPersonality.interests.length > 0 && (
+                    <div className="mb-3">
+                      <h5 className="text-sm font-medium text-gray-700 !text-gray-900 mb-2 font-bold" style={{color: 'black !important'}}>Interests</h5>
+                      <div className="flex flex-wrap gap-1.5">
+                        {user.twinPersonality.interests.map((interest, i) => (
+                          <span key={i} className="bg-indigo-100 text-indigo-900 !text-indigo-900 text-xs px-2.5 py-1 rounded-full font-medium" style={{color: '#312e81 !important'}}>
+                            {interest}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {user.twinPersonality.traits && user.twinPersonality.traits.length > 0 && (
+                    <div className="mb-3">
+                      <h5 className="text-sm font-medium text-gray-700 !text-gray-900 mb-2 font-bold" style={{color: 'black !important'}}>Personality Traits</h5>
+                      <div className="flex flex-wrap gap-1.5">
+                        {user.twinPersonality.traits.map((trait, i) => (
+                          <span key={i} className="bg-purple-100 text-purple-900 !text-purple-900 text-xs px-2.5 py-1 rounded-full font-medium" style={{color: '#581c87 !important'}}>
+                            {trait}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {user.twinPersonality.style && (
+                    <div>
+                      <h5 className="text-sm font-medium text-gray-700 !text-gray-900 mb-2 font-bold" style={{color: 'black !important'}}>Communication Style</h5>
+                      <p className="text-gray-700 !text-gray-900" style={{color: 'black !important'}}>{user.twinPersonality.style}</p>
+                    </div>
+                  )}
+                </div>
+                
                 {/* Display letterboxd data if available */}
                 {user.letterboxdData && user.letterboxdData.status === 'success' && (
                   <div className="mb-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg">
