@@ -270,23 +270,139 @@ export async function fetchLetterboxdData(usernameOrUrl: string): Promise<{
       const $ = cheerio.load(profileResponse.data);
       console.log('Successfully loaded profile page');
       
+      // Debug: Log some of the page structure to understand the HTML
+      console.log('Page sections found:', {
+        favorites: $('.favorites').length,
+        favFilms: $('.fav-films').length,
+        filmPoster: $('.film-poster').length,
+        posterList: $('.poster-list').length,
+        h3Count: $('h3').length,
+        h2Count: $('h2').length
+      });
+      
+      // Try to log all section headings for debugging
+      console.log('Section headings:');
+      $('h2, h3, h4').each((i, el) => {
+        console.log(`- ${$(el).text().trim()}`);
+      });
+      
       // Extract bio if available
       const bio = $('.bio-content').text().trim();
       if (bio) {
         console.log('Found bio on profile:', bio);
       }
       
-      // Look for popular films/genres sections
+      // Look for favorite films/popular films sections using a variety of selectors
       const hasPopularFilmsSection = $('.popular-films').length > 0;
-      const hasFavoriteFilmsSection = $('.favourite-films').length > 0;
+      const hasFavoriteFilmsSection = $('.favourite-films, .favorites, .fav-films').length > 0;
       
       console.log(`Profile has sections - Popular films: ${hasPopularFilmsSection}, Favorite films: ${hasFavoriteFilmsSection}`);
       
-      // Extract favorite genres from favorite films section
+      // If we're going to use the recent ratings method, clear the current favorite films
+      // We'll prioritize actual favorites if we can find them
+      let foundActualFavorites = false;
+      
+      // COMPREHENSIVE STRATEGY FOR FINDING FAVORITE FILMS
+      // Approach 1: Look for section headings containing "FAVORITE" or "FAVOURITES"
+      console.log('Looking for favorite films sections by heading text...');
+      $('h2, h3, h4').each((i, heading) => {
+        const headingText = $(heading).text().trim();
+        if (headingText.toLowerCase().includes('favorite') || 
+            headingText.toLowerCase().includes('favourite')) {
+          console.log(`Found favorite films heading: "${headingText}"`);
+          
+          // Try to find posters in the next element or parent container
+          const posterContainer = $(heading).next().find('.poster-list, .poster-container, .film-poster');
+          if (posterContainer.length > 0) {
+            console.log('Found poster container after heading');
+            
+            // Clear existing favorites since we found actual favorites
+            favoriteFilms.splice(0, favoriteFilms.length);
+            foundActualFavorites = true;
+            
+            // Extract film titles from the posters
+            posterContainer.find('img').each((j, img) => {
+              const filmTitle = $(img).attr('alt')?.trim();
+              if (filmTitle && !favoriteFilms.includes(filmTitle)) {
+                favoriteFilms.push(filmTitle);
+                console.log('Found favorite film by heading:', filmTitle);
+              }
+            });
+          } else {
+            // Try to find film posters in the parent container
+            const parentContainer = $(heading).parent();
+            parentContainer.find('img.poster, .film-poster img').each((j, img) => {
+              const filmTitle = $(img).attr('alt')?.trim();
+              if (filmTitle && !favoriteFilms.includes(filmTitle)) {
+                // Clear existing favorites before adding the first one
+                if (!foundActualFavorites) {
+                  favoriteFilms.splice(0, favoriteFilms.length);
+                  foundActualFavorites = true;
+                }
+                favoriteFilms.push(filmTitle);
+                console.log('Found favorite film by parent container:', filmTitle);
+              }
+            });
+          }
+        }
+      });
+      
+      // Approach 2: Look for containers with specific class names
+      if (!foundActualFavorites) {
+        console.log('Looking for favorite films by container classes...');
+        $('.favorite-films, .film-favorites, .favorites, .fav-films, section[data-item-type="FilmPoster"]').each((i, container) => {
+          console.log('Found potential favorite films container');
+          // Find all posters within the container
+          $(container).find('img').each((j, img) => {
+            const filmTitle = $(img).attr('alt')?.trim();
+            if (filmTitle && !favoriteFilms.includes(filmTitle)) {
+              // Clear existing favorites before adding the first one
+              if (!foundActualFavorites) {
+                favoriteFilms.splice(0, favoriteFilms.length);
+                foundActualFavorites = true;
+              }
+              favoriteFilms.push(filmTitle);
+              console.log('Found favorite film by container class:', filmTitle);
+            }
+          });
+        });
+      }
+      
+      // Approach 3: Find sections through general poster lists
+      if (!foundActualFavorites) {
+        console.log('Scanning all poster sections...');
+        $('.poster-list').each((i, list) => {
+          // Check if this section might be a favorites section
+          const nearestHeading = $(list).prev('h2, h3, h4').text().trim().toLowerCase();
+          console.log(`Found poster list with heading: "${nearestHeading}"`);
+          
+          // If heading contains keywords like favorite, or it's the first poster list
+          if (nearestHeading.includes('favorite') || 
+              nearestHeading.includes('favourite') || 
+              nearestHeading.includes('films') || 
+              i === 0) {
+            // Find all posters within this list
+            $(list).find('img').each((j, img) => {
+              const filmTitle = $(img).attr('alt')?.trim();
+              if (filmTitle && !favoriteFilms.includes(filmTitle)) {
+                // Clear existing favorites before adding the first one
+                if (!foundActualFavorites) {
+                  favoriteFilms.splice(0, favoriteFilms.length);
+                  foundActualFavorites = true;
+                }
+                favoriteFilms.push(filmTitle);
+                console.log('Found favorite film from poster list:', filmTitle);
+              }
+            });
+          }
+        });
+      }
+      
+      // Update extraction logic for favorite genres too
       if (favoriteGenres.length === 0) {
         console.log('Extracting genres from profile');
         // Try favorite films section first
-        $('.favourite-films .metadata-genres a').each((_, element) => {
+        $('.favourite-films .metadata-genres a, .favorites .metadata-genres a').each((_, element) => {
           const genre = $(element).text().trim();
           if (genre && !favoriteGenres.includes(genre)) {
             favoriteGenres.push(genre);
@@ -314,78 +430,20 @@ export async function fetchLetterboxdData(usernameOrUrl: string): Promise<{
         }
       }
       
-      // Extract favorite films
-      if (favoriteFilms.length === 0 || hasFavoriteFilmsSection) {
-        console.log('Extracting films from profile');
-        
-        // Clear the existing favorite films if we have a dedicated section
-        if (hasFavoriteFilmsSection) {
-          console.log('Found dedicated favorite films section, prioritizing these films');
-          favoriteFilms.splice(0, favoriteFilms.length); // Clear the array without reassignment
-        }
-        
-        // Try favorite films section first with improved selectors
-        let foundFavoriteFilms = false;
-        
-        // Direct selector for the "FAVORITE FILMS" section we can see in the screenshot
-        $('h3:contains("FAVORITE FILMS"), h2:contains("FAVORITE FILMS")').next().find('img').each((_, element) => {
-          const filmTitle = $(element).attr('alt')?.trim();
-          if (filmTitle && !favoriteFilms.includes(filmTitle)) {
-            favoriteFilms.push(filmTitle);
-            foundFavoriteFilms = true;
-            console.log('Found favorite film from direct selector:', filmTitle);
-          }
-        });
-        
-        // If we didn't find any with the direct selector, try the other selectors
-        if (!foundFavoriteFilms) {
-          $('.favourite-films .poster img, .favourite-films .film-poster, .favourite-films img.image, section.films-likes .poster img, .profile-films .poster img').each((_, element) => {
-            const filmTitle = $(element).attr('alt')?.trim();
-            if (filmTitle && !favoriteFilms.includes(filmTitle)) {
-              favoriteFilms.push(filmTitle);
-              foundFavoriteFilms = true;
-              console.log('Found favorite film from profile:', filmTitle);
-            }
-          });
-        }
-        
-        // If we found films in the favorite section, don't fall back to other sections
-        if (foundFavoriteFilms) {
-          console.log('Successfully extracted favorite films from profile');
-        } else {
-          // If still empty, try popular films section
-          if (favoriteFilms.length === 0) {
-            $('.popular-films .film-poster, .popular-films img.image').each((_, element) => {
-              const filmTitle = $(element).attr('alt')?.trim();
-              if (filmTitle && !favoriteFilms.includes(filmTitle)) {
-                favoriteFilms.push(filmTitle);
-              }
-            });
-          }
-          
-          // If still empty, try another selector pattern
-          if (favoriteFilms.length === 0) {
-            $('div[data-film-id] img.image').each((_, element) => {
-              const filmTitle = $(element).attr('alt')?.trim();
-              if (filmTitle && !favoriteFilms.includes(filmTitle)) {
-                favoriteFilms.push(filmTitle);
-              }
-            });
-          }
-          
-          // Finally, look for any film posters
-          if (favoriteFilms.length === 0) {
-            $('img.poster').each((_, element) => {
-              const filmTitle = $(element).attr('alt')?.trim();
-              if (filmTitle && !favoriteFilms.includes(filmTitle)) {
-                favoriteFilms.push(filmTitle);
-              }
-            });
-          }
-        }
+      // If no favorites found yet, and we have recent ratings, use those as fallback
+      if (!foundActualFavorites && favoriteFilms.length === 0 && recentRatings.length > 0) {
+        console.log('No favorite films found on profile, using top-rated films as fallback');
+        // Get favorite films (4.5+ star ratings or top 5 highest rated)
+        favoriteFilms.push(...recentRatings
+          .sort((a, b) => parseFloat(b.rating) - parseFloat(a.rating))
+          .slice(0, 5)
+          .map(r => r.title));
       }
       
       console.log(`After profile scraping: ${favoriteGenres.length} genres, ${favoriteFilms.length} films`);
+      if (favoriteFilms.length > 0) {
+        console.log('Final favorite films:', favoriteFilms);
+      }
       
     } catch (profileError) {
       console.error('Error fetching profile page (continuing with RSS data):', profileError);
