@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 interface Message {
@@ -25,12 +25,15 @@ interface User {
 
 export default function ChatPage() {
   const params = useParams();
+  const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [showInfo, setShowInfo] = useState(false);
 
   // Fetch user and messages on component mount
   useEffect(() => {
@@ -75,6 +78,7 @@ export default function ChatPage() {
 
     const messageToSend = newMessage;
     setNewMessage('');
+    setIsTyping(true);
 
     // Optimistically add user message to the UI
     const tempUserMessage = {
@@ -103,6 +107,7 @@ export default function ChatPage() {
       }
 
       const data = await response.json();
+      setIsTyping(false);
       
       // Replace the temp message with the real one and add AI response
       setMessages(prevMessages => [
@@ -111,6 +116,7 @@ export default function ChatPage() {
         data.assistantMessage
       ]);
     } catch (err) {
+      setIsTyping(false);
       setError(err instanceof Error ? err.message : 'Failed to send message');
       // Remove the temporary message if there was an error
       setMessages(prevMessages => 
@@ -163,79 +169,97 @@ export default function ChatPage() {
   return (
     <div className="flex flex-col h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white shadow-sm py-4 px-6 flex justify-between items-center">
+      <header className="bg-white shadow-sm py-3 px-4 flex items-center justify-between">
         <div className="flex items-center">
-          <div className="ml-2">
+          <Link href="/" className="mr-3">
+            <span className="text-gray-600">←</span>
+          </Link>
+          <div>
             <h1 className="text-xl font-semibold">{user.name}&apos;s Digital Twin</h1>
             <p className="text-sm text-gray-500">Based on your personality and preferences</p>
           </div>
         </div>
-        <Link href="/" className="text-blue-600 hover:text-blue-800 font-medium">
-          Home
-        </Link>
+        <button 
+          className="p-2 rounded-full hover:bg-gray-100"
+          onClick={() => setShowInfo(!showInfo)}
+        >
+          <span className="text-gray-600">ℹ️</span>
+        </button>
       </header>
 
       {/* Chat Container */}
-      <div className="flex-1 overflow-y-auto p-6">
-        {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center">
-            <h2 className="text-xl font-semibold mb-2">Welcome to Your Digital Twin!</h2>
-            <p className="text-gray-600 max-w-md mb-6">
-              This AI twin is based on your personality. Start a conversation to see it in action!
-            </p>
-            <div className="bg-blue-50 p-4 rounded-lg max-w-lg">
-              <h3 className="font-medium mb-2">About Your Twin</h3>
-              <p className="text-sm">{user.twinPersonality.summary}</p>
-              <div className="mt-3">
-                <span className="text-xs font-medium">Interests: </span>
-                <span className="text-xs">{user.twinPersonality.interests.join(', ')}</span>
-              </div>
+      <div className="flex-1 overflow-y-auto p-4">
+        {showInfo && (
+          <div className="bg-blue-50 p-4 rounded-lg mb-4">
+            <h3 className="font-semibold mb-2">About This Twin</h3>
+            <p className="text-sm mb-2">{user.twinPersonality.summary}</p>
+            <div className="mb-2">
+              <span className="text-xs font-medium">Interests: </span>
+              <span className="text-xs">{user.twinPersonality.interests.join(', ')}</span>
+            </div>
+            <div>
+              <span className="text-xs font-medium">Traits: </span>
+              <span className="text-xs">{user.twinPersonality.traits.join(', ')}</span>
             </div>
           </div>
-        ) : (
-          <div className="max-w-3xl mx-auto">
-            {messages.map((message) => (
+        )}
+
+        <div className="space-y-4">
+          {messages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-64 text-center">
+              <h2 className="text-xl font-semibold mb-2">Start a Conversation</h2>
+              <p className="text-gray-600 max-w-md mb-6">
+                This AI twin is based on your personality. Start chatting to see it in action!
+              </p>
+            </div>
+          ) : (
+            messages.map((message) => (
               <div
                 key={message.id}
-                className={`mb-4 ${
-                  message.isUser ? 'text-right' : 'text-left'
+                className={`flex ${
+                  message.isUser ? 'justify-end' : 'justify-start'
                 }`}
               >
                 <div
-                  className={`inline-block max-w-md px-4 py-2 rounded-lg ${
-                    message.isUser
-                      ? 'bg-blue-600 text-white rounded-br-none'
-                      : 'bg-gray-200 text-gray-800 rounded-bl-none'
+                  className={`max-w-[80%] rounded-lg p-3 ${
+                    message.isUser ? 'bg-blue-600 text-white' : 'bg-white shadow-sm'
                   }`}
                 >
-                  {message.content}
-                </div>
-                <div className="text-xs text-gray-500 mt-1">
-                  {new Date(message.createdAt).toLocaleTimeString([], {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
+                  <p className="text-sm">{message.content}</p>
                 </div>
               </div>
-            ))}
-            <div ref={messagesEndRef} />
-          </div>
-        )}
+            ))
+          )}
+
+          {isTyping && (
+            <div className="flex justify-start">
+              <div className="max-w-[80%] bg-gray-100 rounded-lg p-3">
+                <div className="flex space-x-1">
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+        <div ref={messagesEndRef} />
       </div>
 
       {/* Message Input */}
-      <div className="border-t border-gray-200 p-4 bg-white">
-        <form onSubmit={handleSubmit} className="max-w-3xl mx-auto flex">
+      <div className="p-4 bg-white border-t">
+        <form onSubmit={handleSubmit} className="flex space-x-2">
           <input
             type="text"
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
-            className="flex-1 border border-gray-300 rounded-l-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Type your message here..."
+            placeholder="Type your message..."
+            className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm"
           />
-          <button
-            type="submit"
-            className="bg-blue-600 text-white px-4 py-2 rounded-r-lg hover:bg-blue-700 transition duration-200"
+          <button 
+            type="submit" 
+            disabled={!newMessage.trim() || isTyping}
+            className="bg-blue-600 text-white px-4 py-2 rounded-md disabled:opacity-50"
           >
             Send
           </button>
