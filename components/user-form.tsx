@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { FaSpotify } from 'react-icons/fa';
+import { TwinCreationLoading } from './twin-creation-loading';
 
 interface UserFormProps {
   onError?: (error: string | null) => void;
@@ -15,6 +16,7 @@ export function UserForm({ onError }: UserFormProps) {
   const [bio, setBio] = useState('');
   const [letterboxdUrl, setLetterboxdUrl] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCreatingTwin, setIsCreatingTwin] = useState(false);
   const [spotifyStatus, setSpotifyStatus] = useState<'not_connected' | 'connected' | 'error'>('not_connected');
   const [spotifyData, setSpotifyData] = useState<any>(null);
   const [validationErrors, setValidationErrors] = useState<{
@@ -82,7 +84,8 @@ export function UserForm({ onError }: UserFormProps) {
     
     try {
       setIsSubmitting(true);
-      onError?.("Creating your digital twin... This may take a moment.");
+      setIsCreatingTwin(true);
+      // Don't show error message text when starting creation
       
       const response = await fetch('/api/users', {
         method: 'POST',
@@ -99,12 +102,12 @@ export function UserForm({ onError }: UserFormProps) {
       
       if (response.ok) {
         const data = await response.json();
-        onError?.("Twin created successfully! Redirecting to chat...");
+        // Don't show success message text, the animation will indicate progress
         
-        // Short delay to show success message before redirect
+        // Short delay to allow the animation to complete its progress
         setTimeout(() => {
           router.push(`/chat/${data.id}`);
-        }, 1000);
+        }, 1500);
       } else {
         // Generic error handling
         const errorData = await response.json();
@@ -133,99 +136,103 @@ export function UserForm({ onError }: UserFormProps) {
       onError?.('Network error. Please try again later.');
     } finally {
       setIsSubmitting(false);
+      // Keep isCreatingTwin true if we're successful and waiting for redirect
     }
   };
   
   return (
-    <form onSubmit={handleSubmit} className="w-full space-y-4">
-      <div className="space-y-2">
-        <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-          Your Name (Optional)
-        </label>
-        <input
-          id="name"
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Enter your name or leave as Anonymous"
-          className={`w-full rounded-md border ${validationErrors.name ? 'border-red-500' : 'border-gray-300'} px-3 py-2 text-black placeholder:text-gray-400`}
-          disabled={isSubmitting}
-        />
-        {validationErrors.name && (
-          <p className="text-red-500 text-xs mt-1">{validationErrors.name}</p>
-        )}
-      </div>
-      
-      <div className="space-y-2">
-        <label htmlFor="bio" className="block text-sm font-medium text-gray-700">
-          About You
-        </label>
-        <textarea
-          id="bio"
-          value={bio}
-          onChange={(e) => setBio(e.target.value)}
-          placeholder="Share a brief description about yourself (at least 3 characters)..."
-          className={`w-full rounded-md border ${validationErrors.bio ? 'border-red-500' : 'border-gray-300'} px-3 py-2 text-black placeholder:text-gray-400 min-h-[120px]`}
-          disabled={isSubmitting}
-        />
-        {validationErrors.bio && (
-          <p className="text-red-500 text-xs mt-1">{validationErrors.bio}</p>
-        )}
-      </div>
-      
-      <div className="space-y-2">
-        <label htmlFor="letterboxdUrl" className="block text-sm font-medium text-gray-700">
-          Letterboxd Profile URL (Optional)
-        </label>
-        <input
-          id="letterboxdUrl"
-          type="text"
-          value={letterboxdUrl}
-          onChange={(e) => setLetterboxdUrl(e.target.value)}
-          placeholder="https://letterboxd.com/yourusername"
-          className={`w-full rounded-md border ${validationErrors.letterboxdUrl ? 'border-red-500' : 'border-gray-300'} px-3 py-2 text-black placeholder:text-gray-400`}
-          disabled={isSubmitting}
-        />
-        {validationErrors.letterboxdUrl && (
-          <p className="text-red-500 text-xs mt-1">{validationErrors.letterboxdUrl}</p>
-        )}
-      </div>
-      
-      <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">
-          Spotify Music Preferences (Optional)
-        </label>
-        <div className="w-full flex items-center justify-between p-3 border border-gray-300 rounded-md bg-gray-50">
-          {spotifyStatus === 'connected' ? (
-            <div className="flex items-center text-green-700">
-              <FaSpotify className="mr-2" size={20} />
-              <span className="font-medium">Spotify Connected</span>
-              <span className="ml-2 text-xs text-gray-500">
-                ({spotifyData?.topArtists?.length || 0} artists, {spotifyData?.recentTracks?.length || 0} tracks)
-              </span>
-            </div>
-          ) : (
-            <div className="w-full flex items-center justify-between">
-              <span className="text-gray-500 text-sm">Connect your Spotify account to enhance your twin's music preferences</span>
-              <a 
-                href="/api/auth/spotify?redirect=home"
-                className="flex-shrink-0 flex items-center justify-center py-2 px-4 bg-green-600 hover:bg-green-700 text-white rounded-full transition-colors text-sm font-medium"
-              >
-                <FaSpotify className="mr-2" size={16} />
-                {spotifyStatus === 'error' ? 'Retry Connection' : 'Connect Spotify'}
-              </a>
-            </div>
+    <>
+      {isCreatingTwin && <TwinCreationLoading />}
+      <form onSubmit={handleSubmit} className="w-full space-y-4">
+        <div className="space-y-2">
+          <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+            Your Name (Optional)
+          </label>
+          <input
+            id="name"
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Enter your name or leave as Anonymous"
+            className={`w-full rounded-md border ${validationErrors.name ? 'border-red-500' : 'border-gray-300'} px-3 py-2 text-black placeholder:text-gray-400`}
+            disabled={isSubmitting}
+          />
+          {validationErrors.name && (
+            <p className="text-red-500 text-xs mt-1">{validationErrors.name}</p>
           )}
         </div>
-      </div>
-      
-      <button
-        type="submit"
-        className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        disabled={isSubmitting}
-      >
-        {isSubmitting ? 'Creating Your Digital Twin...' : 'Create My Digital Twin'}
-      </button>
-    </form>
+        
+        <div className="space-y-2">
+          <label htmlFor="bio" className="block text-sm font-medium text-gray-700">
+            About You
+          </label>
+          <textarea
+            id="bio"
+            value={bio}
+            onChange={(e) => setBio(e.target.value)}
+            placeholder="Share a brief description about yourself (at least 3 characters)..."
+            className={`w-full rounded-md border ${validationErrors.bio ? 'border-red-500' : 'border-gray-300'} px-3 py-2 text-black placeholder:text-gray-400 min-h-[120px]`}
+            disabled={isSubmitting}
+          />
+          {validationErrors.bio && (
+            <p className="text-red-500 text-xs mt-1">{validationErrors.bio}</p>
+          )}
+        </div>
+        
+        <div className="space-y-2">
+          <label htmlFor="letterboxdUrl" className="block text-sm font-medium text-gray-700">
+            Letterboxd Profile URL (Optional)
+          </label>
+          <input
+            id="letterboxdUrl"
+            type="text"
+            value={letterboxdUrl}
+            onChange={(e) => setLetterboxdUrl(e.target.value)}
+            placeholder="https://letterboxd.com/yourusername"
+            className={`w-full rounded-md border ${validationErrors.letterboxdUrl ? 'border-red-500' : 'border-gray-300'} px-3 py-2 text-black placeholder:text-gray-400`}
+            disabled={isSubmitting}
+          />
+          {validationErrors.letterboxdUrl && (
+            <p className="text-red-500 text-xs mt-1">{validationErrors.letterboxdUrl}</p>
+          )}
+        </div>
+        
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-700">
+            Spotify Music Preferences (Optional)
+          </label>
+          <div className="w-full flex items-center justify-between p-3 border border-gray-300 rounded-md bg-gray-50">
+            {spotifyStatus === 'connected' ? (
+              <div className="flex items-center text-green-700">
+                <FaSpotify className="mr-2" size={20} />
+                <span className="font-medium">Spotify Connected</span>
+                <span className="ml-2 text-xs text-gray-500">
+                  ({spotifyData?.topArtists?.length || 0} artists, {spotifyData?.recentTracks?.length || 0} tracks)
+                </span>
+              </div>
+            ) : (
+              <div className="w-full flex items-center justify-between">
+                <span className="text-gray-500 text-sm">Connect your Spotify account to enhance your twin's music preferences</span>
+                <a 
+                  href="/api/auth/spotify?redirect=home"
+                  className="flex-shrink-0 flex items-center justify-center py-2 px-4 bg-green-600 hover:bg-green-700 text-white rounded-full transition-colors text-sm font-medium"
+                >
+                  <FaSpotify className="mr-2" size={16} />
+                  {spotifyStatus === 'error' ? 'Retry Connection' : 'Connect Spotify'}
+                </a>
+              </div>
+            )}
+          </div>
+        </div>
+        
+        <button
+          type="submit"
+          className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={isSubmitting}
+        >
+          {isSubmitting ? 'Creating...' : 'Create My Digital Twin'}
+        </button>
+      </form>
+    </>
   );
 } 
