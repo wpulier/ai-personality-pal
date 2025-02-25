@@ -29,7 +29,7 @@ export interface SpotifySuccess {
 export type SpotifyResult = SpotifySuccess | SpotifyError | SpotifyNotProvided;
 
 // Helper function to get the redirect URI based on the request host
-const getRedirectUri = (requestHost?: string) => {
+const getRedirectUri = () => {
   try {
     // For local development, use localhost
     if (process.env.NODE_ENV === 'development') {
@@ -324,7 +324,7 @@ export class SpotifyClient {
    * Fetch Spotify data for a given profile URL
    * This is the main method to be used by the application
    */
-  public async fetchSpotifyData(spotifyUrl: string | null, requestHost?: string): Promise<SpotifyResult> {
+  public async fetchSpotifyData(spotifyUrl: string | null): Promise<SpotifyResult> {
     // If no URL provided, return not_provided status
     if (!spotifyUrl) {
       return {
@@ -373,13 +373,13 @@ export const spotifyClient = SpotifyClient.getInstance();
 /**
  * Main function to fetch Spotify data (cacheable version)
  */
-export const fetchSpotifyData = cache(async (spotifyUrl: string | null, requestHost?: string): Promise<SpotifyResult> => {
+export const fetchSpotifyData = cache(async (spotifyUrl: string | null): Promise<SpotifyResult> => {
   if (!spotifyUrl) {
     return { status: 'not_provided' };
   }
 
   try {
-    return await spotifyClient.fetchSpotifyData(spotifyUrl, requestHost);
+    return await spotifyClient.fetchSpotifyData(spotifyUrl);
   } catch (error) {
     console.error('Error in fetchSpotifyData:', error);
     return {
