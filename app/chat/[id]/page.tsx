@@ -326,7 +326,7 @@ export default function ChatPage() {
                         <h5 className="text-sm font-medium text-gray-600 mb-2">Top Films</h5>
                         <div className="flex flex-wrap gap-1.5">
                           {user.letterboxdData.favoriteFilms.map((film, i) => (
-                            <span key={i} className="bg-indigo-100 text-indigo-800 text-xs px-2.5 py-1 rounded-full flex items-center">
+                            <span key={i} className="bg-indigo-100 text-indigo-900 text-xs px-2.5 py-1 rounded-full flex items-center font-medium">
                               <FaStar className="text-yellow-500 mr-1 text-xs" /> {film}
                             </span>
                           ))}
@@ -340,7 +340,7 @@ export default function ChatPage() {
                         <h5 className="text-sm font-medium text-gray-600 mb-2">Favorite Genres</h5>
                         <div className="flex flex-wrap gap-1.5">
                           {user.letterboxdData.favoriteGenres.map((genre, i) => (
-                            <span key={i} className="bg-blue-100 text-blue-800 text-xs px-2.5 py-1 rounded-full">
+                            <span key={i} className="bg-blue-100 text-blue-900 text-xs px-2.5 py-1 rounded-full font-medium">
                               {genre}
                             </span>
                           ))}
@@ -355,7 +355,7 @@ export default function ChatPage() {
                         <div className="text-xs grid grid-cols-1 sm:grid-cols-2 gap-2 bg-white p-2 rounded-md">
                           {user.letterboxdData.recentRatings.slice(0, 6).map((rating, i) => (
                             <div key={i} className="flex items-center justify-between border-b border-gray-100 pb-1.5 pt-1">
-                              <span className="truncate mr-2">{rating.title}</span>
+                              <span className="truncate mr-2 text-black font-medium">{rating.title}</span>
                               <span className="flex-shrink-0 bg-yellow-100 text-yellow-800 px-1.5 py-0.5 rounded">
                                 {getRatingStars(parseFloat(rating.rating))}
                               </span>
@@ -400,7 +400,7 @@ export default function ChatPage() {
                         <h5 className="text-sm font-medium text-gray-600 mb-2">Top Artists</h5>
                         <div className="flex flex-wrap gap-1.5">
                           {user.spotifyData.topArtists.map((artist, i) => (
-                            <span key={i} className="bg-green-100 text-green-800 text-xs px-2.5 py-1 rounded-full flex items-center">
+                            <span key={i} className="bg-green-100 text-green-900 text-xs px-2.5 py-1 rounded-full flex items-center font-medium">
                               <FaStar className="text-yellow-500 mr-1 text-xs" /> {artist}
                             </span>
                           ))}
@@ -414,7 +414,7 @@ export default function ChatPage() {
                         <h5 className="text-sm font-medium text-gray-600 mb-2">Music Genres</h5>
                         <div className="flex flex-wrap gap-1.5">
                           {user.spotifyData.topGenres.map((genre, i) => (
-                            <span key={i} className="bg-emerald-100 text-emerald-800 text-xs px-2.5 py-1 rounded-full">
+                            <span key={i} className="bg-emerald-100 text-emerald-900 text-xs px-2.5 py-1 rounded-full font-medium">
                               {genre}
                             </span>
                           ))}
@@ -430,8 +430,8 @@ export default function ChatPage() {
                           {user.spotifyData.recentTracks.slice(0, 6).map((track, i) => (
                             <div key={i} className="flex items-center justify-between border-b border-gray-100 pb-1.5 pt-1">
                               <div className="truncate mr-2">
-                                <div className="font-medium">{track.name}</div>
-                                <div className="text-gray-500 text-xs">{track.artist}</div>
+                                <div className="font-medium text-black">{track.name}</div>
+                                <div className="text-gray-700 text-xs">{track.artist}</div>
                               </div>
                             </div>
                           ))}
