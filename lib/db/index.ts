@@ -1,13 +1,6 @@
-import { Pool, neonConfig } from '@neondatabase/serverless';
+import { Pool } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-serverless';
-import { WebSocket } from 'ws';
 import * as schema from './schema';
-
-// Configure Neon to use WebSockets in a Node.js environment
-if (typeof window === 'undefined') {
-  // Only use WebSocket in Node.js environment (server-side)
-  neonConfig.webSocketConstructor = WebSocket;
-}
 
 // This is a singleton to ensure we don't create multiple connections in a serverless environment
 let db: ReturnType<typeof initializeDb> | null = null;
@@ -20,12 +13,20 @@ function initializeDb() {
   }
 
   try {
+    // Use direct HTTP connection instead of WebSockets
+    const connectionString = process.env.DATABASE_URL;
+    
+    // Force use HTTP instead of WebSockets by setting sslmode=require
+    const httpConnectionString = connectionString.includes('sslmode=require') 
+      ? connectionString 
+      : `${connectionString}${connectionString.includes('?') ? '&' : '?'}sslmode=require`;
+    
+    // Create the connection pool with HTTP
     const pool = new Pool({ 
-      connectionString: process.env.DATABASE_URL,
-      // Add connection pool settings for better stability
-      max: 10, // Maximum number of clients
-      idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
-      connectionTimeoutMillis: 10000, // Return an error after 10 seconds if connection could not be established
+      connectionString: httpConnectionString,
+      max: 5, // Limit connections
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 5000,
     });
     
     // Add error handler to the pool

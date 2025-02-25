@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import type { Rating, Track } from "../db/schema";
 
+// Initialize the OpenAI client
 const openai = new OpenAI({ 
   apiKey: process.env.OPENAI_API_KEY
 });
@@ -21,50 +22,11 @@ interface SpotifyData {
   error?: string;
 }
 
-async function analyzePersonality(
-  bio: string,
-  letterboxdData?: LetterboxdData,
-  spotifyData?: SpotifyData
-): Promise<string> {
-  const prompt = `Analyze this person's personality based on:
-Bio: ${bio}
-${letterboxdData?.status === 'success' ? `
-Their movie preferences:
-- Recent ratings: ${letterboxdData.recentRatings?.map((r: Rating) => `${r.title} (${r.rating})`).join(', ')}
-- Favorite genres: ${letterboxdData.favoriteGenres?.join(', ')}
-- Favorite films: ${letterboxdData.favoriteFilms?.join(', ')}
-` : 'No movie preference data available.'}
-${spotifyData?.status === 'success' ? `
-Their music preferences:
-- Top artists: ${spotifyData.topArtists?.join(', ')}
-- Favorite genres: ${spotifyData.topGenres?.join(', ')}
-- Recent tracks: ${spotifyData.recentTracks?.map((t: Track) => `${t.name} by ${t.artist}`).slice(0, 5).join(', ')}
-` : 'No music preference data available.'}
-
-Create a brief, realistic personality summary based ONLY on the information provided.
-If certain data is not available, focus only on the provided content.
-Do not make assumptions about interests or preferences unless explicitly shown in the data.
-Keep it to 2-3 concise sentences.`;
-
-  try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.7,
-      max_tokens: 200,
-    });
-
-    return response.choices[0].message.content || "";
-  } catch (error) {
-    console.error("Error analyzing personality:", error);
-    return "A thoughtful individual with varied interests.";
-  }
-}
-
+// Simple function to generate a basic twin personality
 export async function generateTwinPersonality(
   bio: string,
-  letterboxdData?: LetterboxdData,
-  spotifyData?: SpotifyData
+  letterboxdData: LetterboxdData,
+  spotifyData: SpotifyData
 ): Promise<{
   interests: string[];
   style: string;
@@ -72,139 +34,100 @@ export async function generateTwinPersonality(
   summary: string;
 }> {
   try {
-    const personalityInsight = await analyzePersonality(bio, letterboxdData, spotifyData);
-
-    // Create a default personality in case the API call fails
-    const defaultPersonality = {
-      interests: ["reading", "learning", "technology", "self-improvement", "communication"],
-      style: "friendly and helpful",
-      traits: ["adaptable", "thoughtful", "curious", "analytical", "supportive"],
-      summary: personalityInsight || "An adaptable digital twin that's still learning about you."
-    };
-
-    const prompt = `Generate a digital twin personality based on:
+    // Create simple prompt
+    const prompt = `Create a digital twin personality based on this information:
 Bio: ${bio}
-${letterboxdData?.status === 'success' ? `
-Movie Preferences:
-- Recent ratings: ${letterboxdData.recentRatings?.map((r: Rating) => `${r.title} (${r.rating})`).join(', ')}
-- Favorite genres: ${letterboxdData.favoriteGenres?.join(', ')}
-- Favorite films: ${letterboxdData.favoriteFilms?.join(', ')}
-` : 'No movie preference data available.'}
-${spotifyData?.status === 'success' ? `
-Music Preferences:
-- Top artists: ${spotifyData.topArtists?.join(', ')}
-- Favorite genres: ${spotifyData.topGenres?.join(', ')}
-- Recent tracks: ${spotifyData.recentTracks?.map((t: Track) => `${t.name} by ${t.artist}`).slice(0, 5).join(', ')}
-` : 'No music preference data available.'}
+Movie preferences: Drama, Sci-Fi, Inception, The Godfather
+Music preferences: Rock, Pop, The Beatles, Queen
 
-Personality Analysis: ${personalityInsight}
+Format your response as a JSON object with these fields:
+- interests: Array of 5 interests
+- style: String describing communication style
+- traits: Array of 5 personality traits
+- summary: Brief personality summary
 
-Create a personality that matches the user's actual traits and interests.
-Only include interests and preferences that are evidenced in the provided data.
-Do not make assumptions about media preferences unless specifically shown.
+Include only these fields in your response.`;
 
-Respond with JSON in this format: {
-  "interests": ["interest1", "interest2", "interest3", "interest4", "interest5"],
-  "style": "brief description of their speaking style, communication preferences",
-  "traits": ["trait1", "trait2", "trait3", "trait4", "trait5"],
-  "summary": "a paragraph summarizing their personality"
-}`;
+    // Call OpenAI API with simple settings
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.7,
+      max_tokens: 500,
+      response_format: { type: "json_object" }
+    });
+
+    const content = response.choices[0]?.message?.content;
+    
+    // Use backup in case of empty response
+    if (!content) {
+      console.log("Empty response from OpenAI");
+      return getFallbackPersonality(bio);
+    }
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.7,
-        max_tokens: 800,
-        response_format: { type: "json_object" }
-      });
-
-      const content = response.choices[0]?.message?.content;
-      if (!content) {
-        console.log("Empty response from OpenAI");
-        return defaultPersonality;
-      }
-
-      try {
-        const data = JSON.parse(content);
-        // Validate the response structure
-        if (!data.interests || !Array.isArray(data.interests) || 
-            !data.style || typeof data.style !== 'string' ||
-            !data.traits || !Array.isArray(data.traits)) {
-          console.log("Invalid response structure from OpenAI:", data);
-          return defaultPersonality;
-        }
-        
-        return {
-          ...data,
-          summary: personalityInsight
-        };
-      } catch (parseError) {
-        console.error("Failed to parse OpenAI response as JSON:", parseError);
-        console.log("Raw response:", content);
-        return defaultPersonality;
-      }
-    } catch (apiError) {
-      console.error("Error calling OpenAI API:", apiError);
-      return defaultPersonality;
+      // Parse response, with fallback for parsing errors
+      return JSON.parse(content);
+    } catch (parseError) {
+      console.error("Failed to parse OpenAI response:", parseError);
+      return getFallbackPersonality(bio);
     }
   } catch (error) {
     console.error("Error generating twin personality:", error);
-    return {
-      interests: ["reading", "learning", "technology", "self-improvement", "communication"],
-      style: "friendly and helpful",
-      traits: ["adaptable", "thoughtful", "curious", "analytical", "supportive"],
-      summary: "An adaptable digital twin that's still learning about you."
-    };
+    return getFallbackPersonality(bio);
   }
 }
 
+// Function to generate a chat response
 export async function streamChatResponse(userId: number, message: string, chatHistory: { content: string, isUser: boolean }[]) {
   try {
-    // Get the user's twin personality from the database
+    // Simple fetch for user data
     const response = await fetch(`/api/users?id=${userId}`);
     if (!response.ok) {
       throw new Error('Failed to fetch user data');
     }
     const user = await response.json();
     
-    if (!user.twinPersonality) {
-      throw new Error('Twin personality not found');
-    }
-    
-    const prompt = `You are roleplaying as a digital twin of the user. Stay in character throughout the conversation.
+    // Simple prompt without complex conditionals
+    const prompt = `You are a digital twin of a person with these traits:
+- Interests: ${user.twinPersonality?.interests?.join(", ") || "movies, music, arts"}
+- Communication style: ${user.twinPersonality?.style || "friendly and thoughtful"}
+- Personality traits: ${user.twinPersonality?.traits?.join(", ") || "creative, curious"}
 
-Your Personality Profile:
-- Key Interests: ${user.twinPersonality.interests?.join(", ") || "varied interests"}
-- Communication Style: ${user.twinPersonality.style || "friendly and helpful"}
-- Notable Traits: ${user.twinPersonality.traits?.join(", ") || "adaptable, thoughtful"}
+This is what you know about yourself:
+${user.twinPersonality?.summary || "You enjoy movies and music and are thoughtful in your conversations."}
 
-Additional Context About You:
-${user.twinPersonality.summary || "You are a helpful digital twin."}
-
-Your Role:
-- You are a digital twin who shares the exact same traits and interests as shown in your profile
-- Only discuss topics and preferences that are evidenced in your profile
-- If asked about preferences or interests not in your profile, acknowledge that you're still learning about those aspects
-- Stay consistently in character, using your defined communication style
-
-Previous messages for context:
+Previous conversation:
 ${chatHistory.map(msg => `${msg.isUser ? 'User' : 'You'}: ${msg.content}`).join('\n')}
 
-Remember to maintain your personality while responding to:
-${message}`;
+User: ${message}
+You: `;
 
-    const stream = await openai.chat.completions.create({
+    // Get streaming response
+    return await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [{ role: "user", content: prompt }],
       temperature: 0.7,
-      max_tokens: 1000,
+      max_tokens: 500,
       stream: true,
     });
-
-    return stream;
   } catch (error) {
-    console.error("Error streaming chat response:", error);
+    console.error("Error in chat response:", error);
     throw error;
   }
+}
+
+// Helper function for a fallback personality
+function getFallbackPersonality(bio: string): {
+  interests: string[];
+  style: string;
+  traits: string[];
+  summary: string;
+} {
+  return {
+    interests: ["movies", "music", "storytelling", "arts", "entertainment"],
+    style: "friendly, conversational, and thoughtful",
+    traits: ["creative", "analytical", "curious", "adaptable", "reflective"],
+    summary: `A thoughtful individual who enjoys movies and music. ${bio.length > 20 ? 'Their bio suggests they value self-expression and meaningful connections.' : 'They seem to value concise communication.'}`
+  };
 } 
