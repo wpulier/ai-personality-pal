@@ -12,7 +12,7 @@ interface UserFormProps {
 export function UserForm({ onError }: UserFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [name, setName] = useState('Anonymous');
+  const [name, setName] = useState('');
   const [bio, setBio] = useState('');
   const [letterboxdUrl, setLetterboxdUrl] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -24,6 +24,24 @@ export function UserForm({ onError }: UserFormProps) {
     bio?: string;
     letterboxdUrl?: string;
   }>({});
+
+  // Load saved form data from localStorage on initial render
+  useEffect(() => {
+    const savedName = localStorage.getItem('twin_form_name');
+    const savedBio = localStorage.getItem('twin_form_bio');
+    const savedLetterboxdUrl = localStorage.getItem('twin_form_letterboxd');
+    
+    if (savedName) setName(savedName);
+    if (savedBio) setBio(savedBio);
+    if (savedLetterboxdUrl) setLetterboxdUrl(savedLetterboxdUrl);
+  }, []);
+
+  // Save form data to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem('twin_form_name', name);
+    localStorage.setItem('twin_form_bio', bio);
+    localStorage.setItem('twin_form_letterboxd', letterboxdUrl);
+  }, [name, bio, letterboxdUrl]);
 
   // Check URL parameters on component mount to see if returning from Spotify auth
   useEffect(() => {
@@ -104,6 +122,11 @@ export function UserForm({ onError }: UserFormProps) {
         const data = await response.json();
         // Don't show success message text, the animation will indicate progress
         
+        // Clear form data from localStorage on successful submission
+        localStorage.removeItem('twin_form_name');
+        localStorage.removeItem('twin_form_bio');
+        localStorage.removeItem('twin_form_letterboxd');
+        
         // Short delay to allow the animation to complete its progress
         setTimeout(() => {
           router.push(`/chat/${data.id}`);
@@ -146,14 +169,14 @@ export function UserForm({ onError }: UserFormProps) {
       <form onSubmit={handleSubmit} className="w-full space-y-4">
         <div className="space-y-2">
           <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-            Your Name (Optional)
+            Your Name
           </label>
           <input
             id="name"
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Enter your name or leave as Anonymous"
+            placeholder="Enter your name"
             className={`w-full rounded-md border ${validationErrors.name ? 'border-red-500' : 'border-gray-300'} px-3 py-2 text-black placeholder:text-gray-400`}
             disabled={isSubmitting}
           />
@@ -215,6 +238,12 @@ export function UserForm({ onError }: UserFormProps) {
                 <span className="text-gray-500 text-sm">Connect your Spotify account to enhance your twin's music preferences</span>
                 <a 
                   href="/api/auth/spotify?redirect=home"
+                  onClick={() => {
+                    // Ensure form data is saved before redirecting
+                    localStorage.setItem('twin_form_name', name);
+                    localStorage.setItem('twin_form_bio', bio);
+                    localStorage.setItem('twin_form_letterboxd', letterboxdUrl);
+                  }}
                   className="flex-shrink-0 flex items-center justify-center py-2 px-4 bg-green-600 hover:bg-green-700 text-white rounded-full transition-colors text-sm font-medium"
                 >
                   <FaSpotify className="mr-2" size={16} />
@@ -227,7 +256,7 @@ export function UserForm({ onError }: UserFormProps) {
         
         <button
           type="submit"
-          className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md font-medium text-base"
           disabled={isSubmitting}
         >
           {isSubmitting ? 'Creating...' : 'Create My Digital Twin'}

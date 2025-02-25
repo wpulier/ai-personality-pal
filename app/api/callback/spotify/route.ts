@@ -79,17 +79,11 @@ export async function GET(request: NextRequest) {
           return NextResponse.redirect(new URL('/?error=User not found', request.url));
         }
         
-        // Update ONLY the Spotify data while preserving all other fields
+        console.log('Updating user with Spotify data while preserving existing data');
+        
+        // Update ONLY the Spotify data field, leaving all other fields untouched
         await db.update(users)
-          .set({ 
-            spotifyData,
-            // Preserve the existing data by explicitly setting it back
-            name: existingUser.name,
-            bio: existingUser.bio,
-            letterboxdUrl: existingUser.letterboxdUrl,
-            letterboxdData: existingUser.letterboxdData,
-            twinPersonality: existingUser.twinPersonality
-          })
+          .set({ spotifyData })
           .where(eq(users.id, userId));
         
         // Redirect to the chat page with the user ID
