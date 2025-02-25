@@ -60,6 +60,7 @@ export const insertUserSchema = z.object({
 export const insertMessageSchema = z.object({
   userId: z.number().int().positive(),
   content: z.string().min(1),
+  isSystemPrompt: z.boolean().optional(),
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;

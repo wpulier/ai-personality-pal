@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
-import { insertUserSchema, users, Rating } from '@/lib/db/schema';
+import { insertUserSchema, users, Rating, messages } from '@/lib/db/schema';
 import { generateTwinPersonality } from '@/lib/services/openai';
 import { eq } from 'drizzle-orm';
 import { ZodError } from 'zod';
@@ -128,6 +128,36 @@ export async function POST(req: NextRequest) {
         twinPersonality,
       })
       .returning();
+    
+    // Create an initial message to prompt the AI to start the conversation
+    console.log(`Creating initial conversation for user ID: ${newUser.id}`);
+    try {
+      // Use the messages API to create the initial conversation
+      const initialPrompt = "Given your twin's info, ask them a question about their music if available, if not, their movies, and if not, their interests.";
+      
+      // Send the request to the messages API
+      const response = await fetch(`${process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000'}/api/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: newUser.id,
+          content: initialPrompt,
+          isSystemPrompt: true // Flag to indicate this is a system prompt
+        }),
+      });
+      
+      if (!response.ok) {
+        console.error('Error creating initial conversation:', await response.text());
+        // We'll continue even if this fails - the user experience will just not have the initial message
+      } else {
+        console.log('Successfully created initial conversation');
+      }
+    } catch (msgError) {
+      console.error('Error creating initial conversation:', msgError);
+      // We'll continue even if this fails - the user experience will just not have the initial message
+    }
     
     return NextResponse.json(newUser);
   } catch (error) {

@@ -66,14 +66,26 @@ export async function POST(request: NextRequest) {
     const db = getDb();
     const body = await request.json();
     
+    // Check if this is a system prompt (for initial conversation)
+    const isSystemPrompt = body.isSystemPrompt === true;
+    
+    // Remove isSystemPrompt from body before validation
+    if (isSystemPrompt) {
+      delete body.isSystemPrompt;
+    }
+    
     // Validate the request body against the schema
     const validatedData = insertMessageSchema.parse(body);
     
-    // Save the user's message
-    const userMessage = await db.insert(messages).values({
-      userId: validatedData.userId,
-      content: validatedData.content
-    }).returning();
+    // For system prompts, we don't save the prompt itself, only the AI response
+    let userMessage;
+    if (!isSystemPrompt) {
+      // Save the user's message for normal conversations
+      userMessage = await db.insert(messages).values({
+        userId: validatedData.userId,
+        content: validatedData.content
+      }).returning();
+    }
     
     // Get previous messages for context (limited to last 10)
     const previousMessages = await db.query.messages.findMany({
@@ -88,11 +100,19 @@ export async function POST(request: NextRequest) {
       isUser: index % 2 === 0 // Alternate, starting with user
     }));
     
-    // Add the current message
-    chatHistory.push({
-      content: validatedData.content,
-      isUser: true
-    });
+    // For system prompts, we only add the prompt to the chat history but don't save it
+    if (isSystemPrompt) {
+      chatHistory.push({
+        content: validatedData.content,
+        isUser: true
+      });
+    } else {
+      // Add the current user message to chat history for normal conversations
+      chatHistory.push({
+        content: validatedData.content,
+        isUser: true
+      });
+    }
     
     // Get user details for personality context
     const user = await db.query.users.findFirst({
@@ -125,9 +145,18 @@ export async function POST(request: NextRequest) {
       content: responseText
     }).returning();
     
+    // For system prompts, we create a different response object
+    if (isSystemPrompt) {
+      return NextResponse.json({
+        success: true,
+        assistantMessage: { ...assistantMessage[0], isUser: false }
+      }, { status: 201 });
+    }
+    
+    // At this point, we know userMessage is defined because it's not a system prompt
     // Add isUser field to the response (not saved in DB)
     const responseWithRoles = {
-      userMessage: { ...userMessage[0], isUser: true },
+      userMessage: { ...userMessage![0], isUser: true },
       assistantMessage: { ...assistantMessage[0], isUser: false }
     };
     

@@ -322,7 +322,7 @@ export default function ChatPage() {
   return (
     <div className="flex flex-col h-screen bg-gradient-to-r from-purple-50 to-blue-50">
       {/* Header - Mobile optimized */}
-      <header className="bg-white shadow-md py-2 md:py-4 px-3 md:px-6 flex items-center sticky top-0 z-10">
+      <header className="bg-white shadow-md py-1 md:py-3 px-3 md:px-6 flex items-center sticky top-0 z-10">
         <div className="flex items-center flex-shrink-0 w-auto md:w-1/4">
           <Link href="/" className="mr-2 md:mr-4 text-gray-600 hover:text-blue-600 transition-colors">
             <FaArrowLeft size={16} />
@@ -347,10 +347,10 @@ export default function ChatPage() {
       </header>
 
       {/* Chat Container - Mobile optimized */}
-      <div className="flex-1 overflow-y-auto p-3 md:p-6">
+      <div className="flex-1 overflow-y-auto p-2 md:p-4">
         {showInfo && (
-          <div className="bg-white p-3 md:p-5 rounded-xl shadow-md mb-4 md:mb-6 border-l-4 border-blue-500 animate-fadeIn [&_span]:!text-black [&_p]:!text-black [&_div]:!text-black text-sm md:text-base" style={{color: 'black !important'}}>
-            <div className="flex justify-between items-center mb-2">
+          <div className="bg-white p-2 md:p-4 rounded-xl shadow-md mb-2 md:mb-4 border-l-4 border-blue-500 animate-fadeIn [&_span]:!text-black [&_p]:!text-black [&_div]:!text-black text-sm md:text-base" style={{color: 'black !important'}}>
+            <div className="flex justify-between items-center mb-1">
               <h3 className="font-bold text-gray-800 text-base md:text-lg">About This Twin</h3>
               <button 
                 className="md:hidden p-1 rounded-full text-gray-500 hover:bg-gray-100"
@@ -362,13 +362,13 @@ export default function ChatPage() {
             </div>
             {user.twinPersonality ? (
               <>
-                <p className="text-gray-700 mb-3 md:mb-4 text-sm md:text-base leading-relaxed">{user.twinPersonality.summary}</p>
+                <p className="text-gray-700 mb-2 md:mb-3 text-sm md:text-base leading-relaxed">{user.twinPersonality.summary}</p>
                 
                 {/* Display personality traits and style - Mobile optimized */}
-                <div className="mb-3 md:mb-4 p-2 md:p-4 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg text-sm">
+                <div className="mb-2 md:mb-3 p-1.5 md:p-3 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg text-sm">
                   {user.twinPersonality.interests && user.twinPersonality.interests.length > 0 && (
-                    <div className="mb-2 md:mb-3">
-                      <h5 className="text-xs md:text-sm font-medium text-gray-700 !text-gray-900 mb-1 md:mb-2 font-bold" style={{color: 'black !important'}}>Interests</h5>
+                    <div className="mb-1.5 md:mb-2">
+                      <h5 className="text-xs md:text-sm font-medium text-gray-700 !text-gray-900 mb-1 font-bold" style={{color: 'black !important'}}>Interests</h5>
                       <div className="flex flex-wrap gap-1 md:gap-1.5">
                         {user.twinPersonality.interests.map((interest, i) => (
                           <span key={i} className="bg-indigo-100 text-indigo-900 !text-indigo-900 text-xs px-2 py-0.5 md:px-2.5 md:py-1 rounded-full font-medium" style={{color: '#312e81 !important'}}>
@@ -380,8 +380,8 @@ export default function ChatPage() {
                   )}
                   
                   {user.twinPersonality.traits && user.twinPersonality.traits.length > 0 && (
-                    <div className="mb-2 md:mb-3">
-                      <h5 className="text-xs md:text-sm font-medium text-gray-700 !text-gray-900 mb-1 md:mb-2 font-bold" style={{color: 'black !important'}}>Personality Traits</h5>
+                    <div className="mb-1.5 md:mb-2">
+                      <h5 className="text-xs md:text-sm font-medium text-gray-700 !text-gray-900 mb-1 font-bold" style={{color: 'black !important'}}>Personality Traits</h5>
                       <div className="flex flex-wrap gap-1 md:gap-1.5">
                         {user.twinPersonality.traits.map((trait, i) => (
                           <span key={i} className="bg-purple-100 text-purple-900 !text-purple-900 text-xs px-2 py-0.5 md:px-2.5 md:py-1 rounded-full font-medium" style={{color: '#581c87 !important'}}>
@@ -394,17 +394,17 @@ export default function ChatPage() {
                   
                   {user.twinPersonality.style && (
                     <div>
-                      <h5 className="text-xs md:text-sm font-medium text-gray-700 !text-gray-900 mb-1 md:mb-2 font-bold" style={{color: 'black !important'}}>Communication Style</h5>
+                      <h5 className="text-xs md:text-sm font-medium text-gray-700 !text-gray-900 mb-1 font-bold" style={{color: 'black !important'}}>Communication Style</h5>
                       <p className="text-gray-700 !text-gray-900 text-xs md:text-sm" style={{color: 'black !important'}}>{user.twinPersonality.style}</p>
                     </div>
                   )}
                 </div>
                 
                 {/* Mobile toggle for media preferences */}
-                <div className="md:hidden mb-2">
+                <div className="md:hidden mb-1.5">
                   <button 
                     onClick={() => setShowLetterboxd(!showLetterboxd)} 
-                    className="w-full text-left flex justify-between items-center p-2 bg-blue-50 rounded-md"
+                    className="w-full text-left flex justify-between items-center p-1.5 bg-blue-50 rounded-md"
                   >
                     <span className="flex items-center">
                       <FaFilm className="text-indigo-600 mr-2" size={14} />
@@ -416,7 +416,7 @@ export default function ChatPage() {
                 
                 {/* Display letterboxd data if available - Mobile optimized */}
                 {user.letterboxdData && user.letterboxdData.status === 'success' && (showLetterboxd || !isMobile) && (
-                  <div className="mb-3 md:mb-4 p-2 md:p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg">
+                  <div className="mb-2 md:mb-3 p-2 md:p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg">
                     <div className="flex items-center mb-2 md:mb-3">
                       <FaFilm className="text-indigo-600 mr-2" size={14} />
                       <h4 className="font-semibold text-gray-700 !text-gray-900 font-bold text-sm md:text-base" style={{color: 'black !important'}}>Letterboxd Movie Preferences</h4>
@@ -483,10 +483,10 @@ export default function ChatPage() {
                 
                 {/* Mobile toggle for Spotify preferences */}
                 {user.spotifyData && user.spotifyData.status === 'success' && (
-                  <div className="md:hidden mb-2">
+                  <div className="md:hidden mb-1.5">
                     <button 
                       onClick={() => setShowSpotify(!showSpotify)} 
-                      className="w-full text-left flex justify-between items-center p-2 bg-green-50 rounded-md"
+                      className="w-full text-left flex justify-between items-center p-1.5 bg-green-50 rounded-md"
                     >
                       <span className="flex items-center">
                         <FaMusic className="text-green-600 mr-2" size={14} />
@@ -499,7 +499,7 @@ export default function ChatPage() {
                 
                 {/* Display Spotify data if available - Mobile optimized */}
                 {user.spotifyData && user.spotifyData.status === 'success' && (showSpotify || !isMobile) && (
-                  <div className="mb-3 md:mb-4 p-2 md:p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg">
+                  <div className="mb-2 md:mb-3 p-2 md:p-3 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg">
                     <div className="flex items-center mb-3">
                       <FaMusic className="text-green-600 mr-2" />
                       <h4 className="font-semibold text-gray-700 !text-gray-900 font-bold" style={{color: 'black !important'}}>Spotify Music Preferences</h4>
@@ -572,7 +572,7 @@ export default function ChatPage() {
           </div>
         )}
 
-        <div className="space-y-3 md:space-y-6">
+        <div className="space-y-2 md:space-y-4">
           {messages.map((message) => (
             <div
               key={message.id}
@@ -581,7 +581,7 @@ export default function ChatPage() {
               }`}
             >
               <div
-                className={`max-w-[85%] md:max-w-[80%] rounded-xl p-3 md:p-4 shadow-sm ${
+                className={`max-w-[85%] md:max-w-[80%] rounded-xl p-2 md:p-3 shadow-sm ${
                   message.isUser 
                     ? 'bg-blue-600 text-white' 
                     : 'bg-white text-gray-800'
@@ -594,7 +594,7 @@ export default function ChatPage() {
 
           {isTyping && (
             <div className="flex justify-start">
-              <div className="max-w-[85%] md:max-w-[80%] bg-white rounded-xl p-3 md:p-4 shadow-sm">
+              <div className="max-w-[85%] md:max-w-[80%] bg-white rounded-xl p-2 md:p-3 shadow-sm">
                 <div className="flex space-x-2">
                   <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
                   <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
@@ -608,7 +608,7 @@ export default function ChatPage() {
       </div>
 
       {/* Message Input - Mobile optimized */}
-      <div className="p-2 md:p-4 bg-white border-t shadow-md">
+      <div className="p-1.5 md:p-3 bg-white border-t shadow-md">
         <form onSubmit={handleSubmit} className="flex items-center space-x-2 max-w-4xl mx-auto">
           <input
             ref={inputRef}
@@ -616,12 +616,12 @@ export default function ChatPage() {
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             placeholder="Type your message..."
-            className="flex-1 border border-gray-300 rounded-full px-3 py-2 md:px-4 md:py-3 text-black focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent placeholder:text-gray-400 text-[16px] md:text-base"
+            className="flex-1 border border-gray-300 rounded-full px-3 py-1.5 md:px-4 md:py-3 text-black focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent placeholder:text-gray-400 text-[16px] md:text-base"
           />
           <button 
             type="submit" 
             disabled={!newMessage.trim() || isTyping}
-            className="bg-blue-600 text-white p-2 md:p-3 rounded-full disabled:opacity-50 hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400"
+            className="bg-blue-600 text-white p-1.5 md:p-3 rounded-full disabled:opacity-50 hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400"
             aria-label="Send message"
           >
             <FaPaperPlane size={16} />
