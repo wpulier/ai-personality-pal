@@ -56,7 +56,12 @@ export async function POST(request: NextRequest) {
         favoriteGenres?: string[];
         favoriteFilms?: string[];
       } = body.letterboxdUrl 
-        ? { status: 'success' as const, recentRatings: [] } // This would be replaced with actual API call
+        ? { 
+            status: 'success' as const, 
+            recentRatings: [], 
+            favoriteGenres: ['Drama', 'Sci-Fi'], 
+            favoriteFilms: ['Inception', 'The Godfather'] 
+          } // This would be replaced with actual API call
         : { status: 'not_provided' as const };
       
       // Process Spotify data if provided
@@ -66,15 +71,24 @@ export async function POST(request: NextRequest) {
         topGenres?: string[];
         recentTracks?: Track[];
       } = body.spotifyUrl
-        ? { status: 'success' as const, topArtists: [] } // This would be replaced with actual API call
+        ? { 
+            status: 'success' as const, 
+            topArtists: ['The Beatles', 'Queen'], 
+            topGenres: ['Rock', 'Pop'], 
+            recentTracks: [] 
+          } // This would be replaced with actual API call
         : { status: 'not_provided' as const };
+      
+      console.log('Generating twin personality with bio:', validatedData.bio);
       
       // Generate twin personality
       const twinPersonality = await generateTwinPersonality(
         validatedData.bio,
-        letterboxdData,
-        spotifyData
+        letterboxdData.status === 'success' ? letterboxdData : undefined,
+        spotifyData.status === 'success' ? spotifyData : undefined
       );
+      
+      console.log('Generated twin personality:', twinPersonality);
       
       // Create the user with the generated personality
       const newUser = await db.insert(users).values({

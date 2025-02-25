@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     // Get messages for the specific user
     const userMessages = await db.query.messages.findMany({
       where: eq(messages.userId, userIdNum),
-      orderBy: [desc(messages.createdAt)]
+      orderBy: [messages.createdAt]
     });
     
     return NextResponse.json(userMessages);
@@ -52,12 +52,12 @@ export async function POST(request: NextRequest) {
     // Get previous messages for context (limited to last 10)
     const previousMessages = await db.query.messages.findMany({
       where: eq(messages.userId, validatedData.userId),
-      orderBy: [desc(messages.createdAt)],
+      orderBy: [messages.createdAt],
       limit: 10
     });
     
     // Format messages for OpenAI
-    const chatHistory = previousMessages.reverse().map(msg => ({
+    const chatHistory = previousMessages.map(msg => ({
       content: msg.content,
       isUser: msg.isUser
     }));
@@ -70,6 +70,8 @@ export async function POST(request: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
+    
+    console.log('Using twin personality for response:', user.twinPersonality);
     
     // Stream is not directly supported in Next.js API routes
     // For a real implementation, use a streaming response or WebSocket
