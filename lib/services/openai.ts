@@ -130,7 +130,7 @@ Format your response as a JSON object with these fields:
 - interests: Array of interests (up to 5, but ONLY what's evident in the data)
 - style: String describing communication style (based only on evident information)
 - traits: Array of personality traits (up to 5, but ONLY what's evident in the data)
-- summary: Brief personality summary that acknowledges limitations of available data
+- summary: A detailed, comprehensive personality analysis (3-5 sentences) that draws meaningful connections between their movie and music preferences, and what that reveals about their personality. Don't over-summarize or truncate insights.
 
 Include only these fields in your response.`;
 

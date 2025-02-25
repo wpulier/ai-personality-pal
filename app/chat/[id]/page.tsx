@@ -281,8 +281,8 @@ export default function ChatPage() {
   return (
     <div className="flex flex-col h-screen bg-gradient-to-r from-purple-50 to-blue-50">
       {/* Header */}
-      <header className="bg-white shadow-md py-4 px-6 flex items-center justify-between sticky top-0 z-10">
-        <div className="flex items-center">
+      <header className="bg-white shadow-md py-4 px-6 flex items-center sticky top-0 z-10">
+        <div className="flex items-center w-1/4">
           <Link href="/" className="mr-4 text-gray-600 hover:text-blue-600 transition-colors">
             <FaArrowLeft size={18} />
           </Link>
@@ -291,16 +291,18 @@ export default function ChatPage() {
             <p className="text-sm text-gray-500">AI personality based on your preferences</p>
           </div>
         </div>
-        <div className="hidden md:block text-center font-medium text-gray-700">
-          Start a Conversation
+        <div className="w-2/4 flex justify-center">
+          <span className="font-bold text-gray-800 text-xl">Start a Conversation</span>
         </div>
-        <button 
-          className="p-2 rounded-full hover:bg-blue-50 text-blue-600 transition-colors"
-          onClick={() => setShowInfo(!showInfo)}
-          aria-label="Toggle twin information"
-        >
-          <FaInfoCircle size={20} />
-        </button>
+        <div className="w-1/4 flex justify-end">
+          <button 
+            className="p-2 rounded-full hover:bg-blue-50 text-blue-600 transition-colors"
+            onClick={() => setShowInfo(!showInfo)}
+            aria-label="Toggle twin information"
+          >
+            <FaInfoCircle size={20} />
+          </button>
+        </div>
       </header>
 
       {/* Chat Container */}
@@ -310,7 +312,7 @@ export default function ChatPage() {
             <h3 className="font-bold text-gray-800 mb-3 text-lg">About This Twin</h3>
             {user.twinPersonality ? (
               <>
-                <p className="text-gray-700 mb-4">{user.twinPersonality.summary}</p>
+                <p className="text-gray-700 mb-4 text-base leading-relaxed">{user.twinPersonality.summary}</p>
                 
                 {/* Display personality traits and style */}
                 <div className="mb-4 p-4 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg">
