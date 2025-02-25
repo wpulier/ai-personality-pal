@@ -50,6 +50,8 @@ Keep it to 2-3 concise sentences.`;
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [{ role: "user", content: prompt }],
+      temperature: 0.7,
+      max_tokens: 200,
     });
 
     return response.choices[0].message.content || "";
@@ -69,9 +71,18 @@ export async function generateTwinPersonality(
   traits: string[];
   summary: string;
 }> {
-  const personalityInsight = await analyzePersonality(bio, letterboxdData, spotifyData);
+  try {
+    const personalityInsight = await analyzePersonality(bio, letterboxdData, spotifyData);
 
-  const prompt = `Generate a digital twin personality based on:
+    // Create a default personality in case the API call fails
+    const defaultPersonality = {
+      interests: ["reading", "learning", "technology", "self-improvement", "communication"],
+      style: "friendly and helpful",
+      traits: ["adaptable", "thoughtful", "curious", "analytical", "supportive"],
+      summary: personalityInsight || "An adaptable digital twin that's still learning about you."
+    };
+
+    const prompt = `Generate a digital twin personality based on:
 Bio: ${bio}
 ${letterboxdData?.status === 'success' ? `
 Movie Preferences:
@@ -99,26 +110,43 @@ Respond with JSON in this format: {
   "summary": "a paragraph summarizing their personality"
 }`;
 
-  try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [{ role: "user", content: prompt }],
-      response_format: { type: "json_object" }
-    });
-
-    const content = response.choices[0]?.message?.content;
-    if (!content) {
-      throw new Error("Failed to generate personality");
-    }
-
     try {
-      const data = JSON.parse(content);
-      return {
-        ...data,
-        summary: personalityInsight
-      };
-    } catch {
-      throw new Error("Failed to parse OpenAI response as JSON");
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.7,
+        max_tokens: 800,
+        response_format: { type: "json_object" }
+      });
+
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
+        console.log("Empty response from OpenAI");
+        return defaultPersonality;
+      }
+
+      try {
+        const data = JSON.parse(content);
+        // Validate the response structure
+        if (!data.interests || !Array.isArray(data.interests) || 
+            !data.style || typeof data.style !== 'string' ||
+            !data.traits || !Array.isArray(data.traits)) {
+          console.log("Invalid response structure from OpenAI:", data);
+          return defaultPersonality;
+        }
+        
+        return {
+          ...data,
+          summary: personalityInsight
+        };
+      } catch (parseError) {
+        console.error("Failed to parse OpenAI response as JSON:", parseError);
+        console.log("Raw response:", content);
+        return defaultPersonality;
+      }
+    } catch (apiError) {
+      console.error("Error calling OpenAI API:", apiError);
+      return defaultPersonality;
     }
   } catch (error) {
     console.error("Error generating twin personality:", error);
@@ -126,28 +154,33 @@ Respond with JSON in this format: {
       interests: ["reading", "learning", "technology", "self-improvement", "communication"],
       style: "friendly and helpful",
       traits: ["adaptable", "thoughtful", "curious", "analytical", "supportive"],
-      summary: personalityInsight || "An adaptable digital twin that's still learning about you."
+      summary: "An adaptable digital twin that's still learning about you."
     };
   }
 }
 
 export async function streamChatResponse(userId: number, message: string, chatHistory: { content: string, isUser: boolean }[]) {
-  // Get the user's twin personality from the database
-  const response = await fetch(`/api/users?id=${userId}`);
-  if (!response.ok) {
-    throw new Error('Failed to fetch user data');
-  }
-  const user = await response.json();
-  
-  const prompt = `You are roleplaying as a digital twin of the user. Stay in character throughout the conversation.
+  try {
+    // Get the user's twin personality from the database
+    const response = await fetch(`/api/users?id=${userId}`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch user data');
+    }
+    const user = await response.json();
+    
+    if (!user.twinPersonality) {
+      throw new Error('Twin personality not found');
+    }
+    
+    const prompt = `You are roleplaying as a digital twin of the user. Stay in character throughout the conversation.
 
 Your Personality Profile:
-- Key Interests: ${user.twinPersonality.interests.join(", ")}
-- Communication Style: ${user.twinPersonality.style}
-- Notable Traits: ${user.twinPersonality.traits.join(", ")}
+- Key Interests: ${user.twinPersonality.interests?.join(", ") || "varied interests"}
+- Communication Style: ${user.twinPersonality.style || "friendly and helpful"}
+- Notable Traits: ${user.twinPersonality.traits?.join(", ") || "adaptable, thoughtful"}
 
 Additional Context About You:
-${user.twinPersonality.summary}
+${user.twinPersonality.summary || "You are a helpful digital twin."}
 
 Your Role:
 - You are a digital twin who shares the exact same traits and interests as shown in your profile
@@ -161,7 +194,6 @@ ${chatHistory.map(msg => `${msg.isUser ? 'User' : 'You'}: ${msg.content}`).join(
 Remember to maintain your personality while responding to:
 ${message}`;
 
-  try {
     const stream = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [{ role: "user", content: prompt }],

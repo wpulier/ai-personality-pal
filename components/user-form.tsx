@@ -18,6 +18,7 @@ export function UserForm({ onError }: UserFormProps) {
   const [bio, setBio] = useState('');
   const [letterboxdUrl, setLetterboxdUrl] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
   const [validationErrors, setValidationErrors] = useState<{
     name?: string;
     bio?: string;
@@ -103,7 +104,29 @@ export function UserForm({ onError }: UserFormProps) {
       router.push(`/chat/${data.id}`);
     } catch (error) {
       console.error('Error creating digital twin:', error);
-      onError?.(error instanceof Error ? error.message : 'An error occurred while creating your digital twin');
+      
+      // Handle database connection errors with retry logic
+      if (error instanceof Error && 
+          (error.message.includes('Connection terminated') || 
+           error.message.includes('database') || 
+           error.message.includes('network'))) {
+        
+        if (retryCount < 2) {
+          // Retry the submission
+          setRetryCount(prev => prev + 1);
+          onError?.('Connection issue detected. Retrying...');
+          
+          // Wait a moment before retrying
+          setTimeout(() => {
+            handleSubmit(e);
+          }, 2000);
+          return;
+        } else {
+          onError?.('Database connection failed. Please try again later.');
+        }
+      } else {
+        onError?.(error instanceof Error ? error.message : 'An error occurred while creating your digital twin');
+      }
     } finally {
       setIsSubmitting(false);
     }
