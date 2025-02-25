@@ -306,7 +306,7 @@ export default function ChatPage() {
       {/* Chat Container */}
       <div className="flex-1 overflow-y-auto p-6">
         {showInfo && (
-          <div className="bg-white p-5 rounded-xl shadow-md mb-6 border-l-4 border-blue-500 animate-fadeIn">
+          <div className="bg-white p-5 rounded-xl shadow-md mb-6 border-l-4 border-blue-500 animate-fadeIn [&_span]:!text-black [&_p]:!text-black [&_div]:!text-black" style={{color: 'black !important'}}>
             <h3 className="font-bold text-gray-800 mb-3 text-lg">About This Twin</h3>
             {user.twinPersonality ? (
               <>
@@ -317,16 +317,16 @@ export default function ChatPage() {
                   <div className="mb-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg">
                     <div className="flex items-center mb-3">
                       <FaFilm className="text-indigo-600 mr-2" />
-                      <h4 className="font-semibold text-gray-700">Letterboxd Movie Preferences</h4>
+                      <h4 className="font-semibold text-gray-700 !text-gray-900 font-bold" style={{color: 'black !important'}}>Letterboxd Movie Preferences</h4>
                     </div>
                     
                     {/* Favorite films */}
                     {user.letterboxdData.favoriteFilms && user.letterboxdData.favoriteFilms.length > 0 && (
                       <div className="mb-3">
-                        <h5 className="text-sm font-medium text-gray-600 mb-2">Top Films</h5>
+                        <h5 className="text-sm font-medium text-gray-700 !text-gray-900 mb-2 font-bold" style={{color: 'black !important'}}>Top Films</h5>
                         <div className="flex flex-wrap gap-1.5">
                           {user.letterboxdData.favoriteFilms.map((film, i) => (
-                            <span key={i} className="bg-indigo-100 text-indigo-900 text-xs px-2.5 py-1 rounded-full flex items-center font-medium">
+                            <span key={i} className="bg-indigo-100 text-indigo-900 !text-indigo-900 text-xs px-2.5 py-1 rounded-full flex items-center font-medium" style={{color: '#312e81 !important'}}>
                               <FaStar className="text-yellow-500 mr-1 text-xs" /> {film}
                             </span>
                           ))}
@@ -337,10 +337,10 @@ export default function ChatPage() {
                     {/* Favorite genres */}
                     {user.letterboxdData.favoriteGenres && user.letterboxdData.favoriteGenres.length > 0 && (
                       <div className="mb-3">
-                        <h5 className="text-sm font-medium text-gray-600 mb-2">Favorite Genres</h5>
+                        <h5 className="text-sm font-medium text-gray-700 !text-gray-900 mb-2 font-bold" style={{color: 'black !important'}}>Favorite Genres</h5>
                         <div className="flex flex-wrap gap-1.5">
                           {user.letterboxdData.favoriteGenres.map((genre, i) => (
-                            <span key={i} className="bg-blue-100 text-blue-900 text-xs px-2.5 py-1 rounded-full font-medium">
+                            <span key={i} className="bg-blue-100 text-blue-900 !text-blue-900 text-xs px-2.5 py-1 rounded-full font-medium" style={{color: '#1e3a8a !important'}}>
                               {genre}
                             </span>
                           ))}
@@ -351,11 +351,11 @@ export default function ChatPage() {
                     {/* Recent ratings */}
                     {user.letterboxdData.recentRatings && user.letterboxdData.recentRatings.length > 0 && (
                       <div>
-                        <h5 className="text-sm font-medium text-gray-600 mb-2">Recent Ratings</h5>
-                        <div className="text-xs grid grid-cols-1 sm:grid-cols-2 gap-2 bg-white p-2 rounded-md">
+                        <h5 className="text-sm font-medium text-gray-700 !text-gray-900 mb-2 font-bold" style={{color: 'black !important'}}>Recent Ratings</h5>
+                        <div className="text-xs grid grid-cols-1 sm:grid-cols-2 gap-2 bg-white p-2 rounded-md [&_*]:!text-black" style={{color: 'black !important'}}>
                           {user.letterboxdData.recentRatings.slice(0, 6).map((rating, i) => (
                             <div key={i} className="flex items-center justify-between border-b border-gray-100 pb-1.5 pt-1">
-                              <span className="truncate mr-2 text-black font-medium">{rating.title}</span>
+                              <span className="truncate mr-2 text-black font-medium !text-black" style={{color: 'black !important'}}>{rating.title}</span>
                               <span className="flex-shrink-0 bg-yellow-100 text-yellow-800 px-1.5 py-0.5 rounded">
                                 {getRatingStars(parseFloat(rating.rating))}
                               </span>
@@ -391,16 +391,16 @@ export default function ChatPage() {
                   <div className="mb-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg">
                     <div className="flex items-center mb-3">
                       <FaMusic className="text-green-600 mr-2" />
-                      <h4 className="font-semibold text-gray-700">Spotify Music Preferences</h4>
+                      <h4 className="font-semibold text-gray-700 !text-gray-900 font-bold" style={{color: 'black !important'}}>Spotify Music Preferences</h4>
                     </div>
                     
                     {/* Top Artists */}
                     {user.spotifyData.topArtists && user.spotifyData.topArtists.length > 0 && (
                       <div className="mb-3">
-                        <h5 className="text-sm font-medium text-gray-600 mb-2">Top Artists</h5>
+                        <h5 className="text-sm font-medium text-gray-700 !text-gray-900 mb-2 font-bold" style={{color: 'black !important'}}>Top Artists</h5>
                         <div className="flex flex-wrap gap-1.5">
                           {user.spotifyData.topArtists.map((artist, i) => (
-                            <span key={i} className="bg-green-100 text-green-900 text-xs px-2.5 py-1 rounded-full flex items-center font-medium">
+                            <span key={i} className="bg-green-100 text-green-900 !text-green-900 text-xs px-2.5 py-1 rounded-full flex items-center font-medium" style={{color: '#064e3b !important'}}>
                               <FaStar className="text-yellow-500 mr-1 text-xs" /> {artist}
                             </span>
                           ))}
@@ -411,10 +411,10 @@ export default function ChatPage() {
                     {/* Favorite Genres */}
                     {user.spotifyData.topGenres && user.spotifyData.topGenres.length > 0 && (
                       <div className="mb-3">
-                        <h5 className="text-sm font-medium text-gray-600 mb-2">Music Genres</h5>
+                        <h5 className="text-sm font-medium text-gray-700 !text-gray-900 mb-2 font-bold" style={{color: 'black !important'}}>Music Genres</h5>
                         <div className="flex flex-wrap gap-1.5">
                           {user.spotifyData.topGenres.map((genre, i) => (
-                            <span key={i} className="bg-emerald-100 text-emerald-900 text-xs px-2.5 py-1 rounded-full font-medium">
+                            <span key={i} className="bg-emerald-100 text-emerald-900 !text-emerald-900 text-xs px-2.5 py-1 rounded-full font-medium" style={{color: '#064e3b !important'}}>
                               {genre}
                             </span>
                           ))}
@@ -425,13 +425,13 @@ export default function ChatPage() {
                     {/* Recent Tracks */}
                     {user.spotifyData.recentTracks && user.spotifyData.recentTracks.length > 0 && (
                       <div>
-                        <h5 className="text-sm font-medium text-gray-600 mb-2">Recently Played</h5>
-                        <div className="text-xs grid grid-cols-1 sm:grid-cols-2 gap-2 bg-white p-2 rounded-md">
+                        <h5 className="text-sm font-medium text-gray-700 !text-gray-900 mb-2 font-bold" style={{color: 'black !important'}}>Recently Played</h5>
+                        <div className="text-xs grid grid-cols-1 sm:grid-cols-2 gap-2 bg-white p-2 rounded-md [&_*]:!text-black" style={{color: 'black !important'}}>
                           {user.spotifyData.recentTracks.slice(0, 6).map((track, i) => (
                             <div key={i} className="flex items-center justify-between border-b border-gray-100 pb-1.5 pt-1">
                               <div className="truncate mr-2">
-                                <div className="font-medium text-black">{track.name}</div>
-                                <div className="text-gray-700 text-xs">{track.artist}</div>
+                                <div className="font-medium text-black !text-black" style={{color: 'black !important'}}>{track.name}</div>
+                                <div className="text-gray-900 !text-gray-900 text-xs font-medium" style={{color: '#111827 !important'}}>{track.artist}</div>
                               </div>
                             </div>
                           ))}
