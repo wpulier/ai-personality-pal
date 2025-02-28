@@ -1,11 +1,35 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/supabase/auth-context';
 
-export default function SignUpPage() {
+// Loading fallback for suspense
+function SignUpLoading() {
+  return (
+    <div className="min-h-screen flex items-center justify-center p-4 bg-black">
+      <div className="w-full max-w-md">
+        <div className="bg-gray-900 rounded-xl shadow-2xl border border-gray-800 overflow-hidden p-6">
+          <div className="flex justify-center">
+            <div className="animate-pulse flex space-x-4">
+              <div className="flex-1 space-y-6 py-1">
+                <div className="h-4 bg-gray-700 rounded w-3/4 mx-auto"></div>
+                <div className="space-y-3">
+                  <div className="h-4 bg-gray-700 rounded"></div>
+                  <div className="h-4 bg-gray-700 rounded"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Client component using useSearchParams
+function SignUpForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -183,5 +207,14 @@ export default function SignUpPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Default export with Suspense
+export default function SignUpPage() {
+  return (
+    <Suspense fallback={<SignUpLoading />}>
+      <SignUpForm />
+    </Suspense>
   );
 } 

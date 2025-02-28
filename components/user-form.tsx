@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { FaSpotify } from 'react-icons/fa';
 import { TwinCreationLoading } from './twin-creation-loading';
@@ -13,7 +13,22 @@ interface UserFormProps {
   onError?: (error: string) => void;
 }
 
-export function UserForm({ onTwinCreated, authUserId, onError }: UserFormProps) {
+// Loading component for Suspense fallback
+function FormLoading() {
+  return (
+    <div className="flex justify-center items-center py-10">
+      <div className="animate-pulse space-y-4 w-full">
+        <div className="h-10 bg-gray-300 rounded w-1/2 mx-auto"></div>
+        <div className="h-32 bg-gray-300 rounded"></div>
+        <div className="h-10 bg-gray-300 rounded"></div>
+        <div className="h-10 bg-gray-300 rounded w-1/2 mx-auto"></div>
+      </div>
+    </div>
+  );
+}
+
+// The actual form component that uses useSearchParams
+function UserFormContent({ onTwinCreated, authUserId, onError }: UserFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isCreatingTwin, setIsCreatingTwin] = useState(false);
@@ -287,5 +302,14 @@ export function UserForm({ onTwinCreated, authUserId, onError }: UserFormProps) 
         </form>
       )}
     </div>
+  );
+}
+
+// Main exported component with Suspense
+export function UserForm(props: UserFormProps) {
+  return (
+    <Suspense fallback={<FormLoading />}>
+      <UserFormContent {...props} />
+    </Suspense>
   );
 } 
