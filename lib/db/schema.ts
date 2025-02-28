@@ -47,6 +47,15 @@ export const messages = pgTable("messages", {
   userId: integer("user_id").notNull().references(() => users.id),
   content: text("content").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  metadata: json("metadata").$type<{
+    type?: 'regular' | 'summary' | 'system' | 'memory';
+    tokens_used?: number;
+    client_timestamp?: string;
+    model?: string;
+    summary_of_ids?: number[];
+    memory_strength?: number;
+    embedding?: number[];
+  }>(),
 });
 
 // Simple schema validation without drizzle-zod

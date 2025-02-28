@@ -1,0 +1,158 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { createMessage, getTwin } from '@/lib/services/twin-service';
+import { streamChatResponse } from '@/lib/services/streamChatResponse';
+import { createClient } from '@supabase/supabase-js';
+
+export async function POST(
+  request: NextRequest,
+  context: { params: { id: string } }
+) {
+  try {
+    // Get twin ID from URL params - properly await the params object
+    const { id } = await context.params;
+    const twinId = parseInt(id);
+    if (isNaN(twinId)) {
+      return NextResponse.json({ error: 'Invalid twin ID' }, { status: 400 });
+    }
+
+    // Create admin client for direct database access
+    const adminClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_KEY!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    );
+
+    // Get twin data directly from database
+    console.log(`Fetching twin data for first message, ID: ${twinId}`);
+    const { data: twin, error: twinError } = await adminClient
+      .from('twins')
+      .select('*')
+      .eq('id', twinId)
+      .single();
+      
+    if (twinError || !twin) {
+      console.error('Twin not found:', twinError);
+      return NextResponse.json({ error: 'Twin not found' }, { status: 404 });
+    }
+
+    // Check if there are already messages for this twin
+    console.log('Checking for existing messages');
+    const { count, error: countError } = await adminClient
+      .from('messages')
+      .select('*', { count: 'exact', head: true })
+      .eq('twin_id', twinId);
+    
+    if (countError) {
+      console.error('Error checking for existing messages:', countError);
+    } else if (count && count > 0) {
+      console.log(`Twin ${twinId} already has ${count} messages, skipping first message generation`);
+      return NextResponse.json({ error: 'First message already exists' }, { status: 400 });
+    }
+
+    // Create a context-aware prompt for the LLM
+    console.log('Creating first message prompt');
+    const prompt = `You are ${twin.name}'s digital twin - you ARE ${twin.name}, talking to yourself. Start the conversation with a friendly, personalized greeting or question that reflects your shared interests. Your message should be 1-2 sentences.
+
+CRITICAL ROLEPLAY INSTRUCTIONS:
+- You ARE the user talking to themselves - use "we", "our", "us" language, NOT "you" or "your" which implies you're a different person
+- Speak as if talking to another version of yourself - like "Hey me!" or "So, what are we thinking about our favorite [interest] lately?"
+- Never say things like "I noticed you like..." or "What's your favorite..." as this breaks the roleplay
+- Instead use phrases like "We've been into [specific artist/film] lately, haven't we?" or "Should we revisit [specific interest] soon?"
+- Remember: this is a conversation with yourself, not with a separate AI assistant
+
+PERSONALIZATION DATA:
+IF Spotify data is available (${twin.spotify_data?.status === 'success' ? 'YES' : 'NO'}):
+- Top artists: ${twin.spotify_data?.topArtists?.join(', ') || 'None available'}
+- Top genres: ${twin.spotify_data?.topGenres?.join(', ') || 'None available'}
+- Recent tracks: ${twin.spotify_data?.recentTracks?.slice(0, 3).map((t: any) => `${t.name} by ${t.artist}`).join(', ') || 'None available'}
+Reference specific music preferences in your self-conversation.
+
+IF Letterboxd data is available (${twin.letterboxd_data?.status === 'success' ? 'YES' : 'NO'}):
+- Favorite films: ${twin.letterboxd_data?.favoriteFilms?.join(', ') || 'None available'}
+- Favorite genres: ${twin.letterboxd_data?.favoriteGenres?.join(', ') || 'None available'}
+- Recent ratings: ${twin.letterboxd_data?.recentRatings?.slice(0, 3).map((r: any) => `${r.title} (${r.rating}/10)`).join(', ') || 'None available'}
+Reference specific film preferences in your self-conversation.
+
+Bio: "${twin.bio}"
+
+EXAMPLES OF GOOD RESPONSES:
+- "Hey me! Been thinking about our love for [specific artist] lately. Should we dive into their new album or revisit our old favorite?"
+- "So we gave [specific film] a high rating - definitely one of our best watches this year. What should we check out next in that genre?"
+- "Hmm, we've been on a [genre] kick lately, haven't we? Wonder what's drawing us to that vibe right now."`;
+
+    try {
+      // Generate AI response using the improved streamChatResponse function
+      console.log('Generating first message using streamChatResponse');
+      const aiResponse = await streamChatResponse(
+        twinId,
+        prompt,
+        [{ content: prompt, isUser: true }],
+        twin
+      );
+      
+      // Process the response
+      let responseText = '';
+      if (aiResponse) {
+        for await (const chunk of aiResponse) {
+          if (chunk && chunk.choices && chunk.choices[0]?.delta) {
+            responseText += chunk.choices[0].delta.content || '';
+          }
+        }
+      }
+      
+      console.log(`Generated first message: "${responseText.substring(0, 50)}..."`);
+      
+      // Save the AI message to the database using admin client
+      const { data: newMessage, error: insertError } = await adminClient
+        .from('messages')
+        .insert({
+          twin_id: twinId,
+          content: responseText || "Hey there! What's been on our mind lately?",
+          is_user: false
+        })
+        .select()
+        .single();
+      
+      if (insertError) {
+        console.error('Error saving first message:', insertError);
+        return NextResponse.json({ error: 'Failed to save first message' }, { status: 500 });
+      }
+      
+      // Return the new message
+      return NextResponse.json(newMessage, { status: 201 });
+    } catch (error) {
+      console.error('Error generating AI response:', error);
+      
+      // Create a fallback message if AI generation fails
+      const fallbackMessage = "Hey there! I'm your digital twin. What's been on our mind lately?";
+      
+      const { data: newMessage, error: insertError } = await adminClient
+        .from('messages')
+        .insert({
+          twin_id: twinId,
+          content: fallbackMessage,
+          is_user: false
+        })
+        .select()
+        .single();
+      
+      if (insertError) {
+        console.error('Error saving fallback message:', insertError);
+        return NextResponse.json({ error: 'Failed to save fallback message' }, { status: 500 });
+      }
+      
+      return NextResponse.json(newMessage, { status: 201 });
+    }
+  } catch (error) {
+    console.error('Error generating first message:', error);
+    return NextResponse.json({ 
+      error: 'Failed to generate first message',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 });
+  }
+} 

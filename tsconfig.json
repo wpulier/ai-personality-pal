@@ -22,6 +22,6 @@
       "@/*": ["./*"]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "../old/.vercel/spotify-old.ts", "../old/.vercel/openai-old.ts", "../old/.vercel/letterboxd-old.ts", "../old/.vercel/index-old.ts"],
   "exclude": ["node_modules"]
 }

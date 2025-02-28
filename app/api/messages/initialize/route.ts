@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import { messages, users } from '@/lib/db/schema';
-import { streamChatResponse } from '@/lib/services/openai';
+import { streamChatResponse } from '@/lib/services/streamChatResponse';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 

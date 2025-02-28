@@ -33,8 +33,16 @@ const getRedirectUri = (requestHost?: string) => {
   try {
     // Handle local development environment specifically
     if (process.env.NODE_ENV === 'development' || requestHost?.includes('localhost')) {
-      console.log('Using localhost redirect URI for development');
-      return "http://localhost:3000/api/callback/spotify";
+      if (requestHost) {
+        // Preserve the port from the actual running server
+        const matches = requestHost.match(/localhost:([0-9]+)/);
+        const port = matches ? matches[1] : '3000';
+        console.log(`Using dynamic localhost redirect URI with port ${port}`);
+        return `http://localhost:${port}/api/callback/spotify`;
+      } else {
+        console.log('Using default localhost redirect URI for development');
+        return "http://localhost:3000/api/callback/spotify";
+      }
     }
     
     // For production environment with the specific deployment URL
@@ -45,9 +53,16 @@ const getRedirectUri = (requestHost?: string) => {
     
     // Fallback for any other hosts in production (not likely to be used but kept for safety)
     if (requestHost) {
-      // Parse and reconstruct the URI to ensure it's properly formatted
+      // For localhost, preserve the port number
+      if (requestHost.includes('localhost')) {
+        const matches = requestHost.match(/localhost:([0-9]+)/);
+        const port = matches ? matches[1] : '3000';
+        console.log(`Using dynamic localhost redirect URI with port ${port}`);
+        return `http://localhost:${port}/api/callback/spotify`;
+      }
+      
+      // For other hosts, sanitize and use https
       const sanitizedHost = requestHost
-        .replace(/:[0-9]+$/, '') // Remove any port number
         .replace(/^https?:\/\//, ''); // Remove protocol if present
 
       const protocol = 'https'; // Always use HTTPS for production

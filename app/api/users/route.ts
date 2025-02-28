@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { supabase } from '@/lib/supabase/client';
 import { getDb } from '@/lib/db';
 import { insertUserSchema, users, Rating, messages } from '@/lib/db/schema';
-import { generateTwinPersonality } from '@/lib/services/openai';
+import { generateTwinPersonality } from '@/lib/services/streamChatResponse';
 import { eq } from 'drizzle-orm';
 import { ZodError } from 'zod';
 import { fetchLetterboxdData } from "@/lib/services/letterboxd";
 import { z } from "zod";
+import { createClient } from '@supabase/supabase-js';
 
 // Schema for validating user creation
 const userSchema = z.object({
@@ -17,6 +19,19 @@ const userSchema = z.object({
 
 export async function GET(req: NextRequest) {
   try {
+    // Create a direct admin client with service role key to bypass RLS
+    console.log('Creating admin client with URL:', process.env.NEXT_PUBLIC_SUPABASE_URL);
+    const adminClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+      process.env.SUPABASE_SERVICE_KEY || '',
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    );
+
     const searchParams = req.nextUrl.searchParams;
     const userId = searchParams.get('userId') || searchParams.get('id');
 
@@ -27,27 +42,43 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: "Invalid user ID" }, { status: 400 });
       }
 
-      // Get a specific user
-      const db = getDb();
-      const user = await db.query.users.findFirst({
-        where: eq(users.id, id),
-      });
+      console.log(`Fetching twin with ID ${id} using admin client`);
+      
+      // Get a specific twin from Supabase using admin client
+      const { data: twin, error } = await adminClient
+        .from('twins')
+        .select('*')
+        .eq('id', id)
+        .single();
 
-      if (!user) {
-        return NextResponse.json({ error: "User not found" }, { status: 404 });
+      if (error) {
+        console.error('Error fetching twin:', error);
+        return NextResponse.json({ error: "Twin not found or database error" }, { status: 404 });
       }
 
-      return NextResponse.json(user);
+      if (!twin) {
+        return NextResponse.json({ error: "Twin not found" }, { status: 404 });
+      }
+
+      return NextResponse.json(twin);
     } else {
-      // Get all users
-      const db = getDb();
-      const allUsers = await db.query.users.findMany();
-      return NextResponse.json(allUsers);
+      // Get all twins using admin client
+      const { data: twins, error } = await adminClient
+        .from('twins')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('Error fetching twins:', error);
+        return NextResponse.json({ error: "Failed to fetch twins" }, { status: 500 });
+      }
+
+      return NextResponse.json(twins || []);
     }
   } catch (error) {
-    console.error("Error fetching users:", error);
+    console.error("Error fetching twins:", error);
     return NextResponse.json(
-      { error: "Failed to fetch users" },
+      { error: "Failed to fetch twins" },
       { status: 500 }
     );
   }

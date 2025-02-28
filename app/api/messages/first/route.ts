@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import { messages, users } from '@/lib/db/schema';
-import { streamChatResponse } from '@/lib/services/openai';
+import { streamChatResponse } from '@/lib/services/streamChatResponse';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 
@@ -24,6 +24,7 @@ export async function POST(request: NextRequest) {
     });
     
     if (!user) {
+      console.error(`User not found for ID: ${userId}`);
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
     
@@ -34,6 +35,7 @@ export async function POST(request: NextRequest) {
     });
     
     if (existingMessages.length > 0) {
+      console.log(`User ${userId} already has messages, skipping first message generation`);
       return NextResponse.json({ error: 'User already has messages' }, { status: 400 });
     }
     
@@ -67,28 +69,50 @@ EXAMPLES OF GOOD RESPONSES:
 - "So we gave [specific film] a high rating - definitely one of our best watches this year. What should we check out next in that genre?"
 - "Hmm, we've been on a [genre] kick lately, haven't we? Wonder what's drawing us to that vibe right now."`;
     
-    // Generate the AI response
-    const aiResponse = await streamChatResponse(
-      userId,
-      prompt,
-      [{ content: prompt, isUser: true }],
-      user
-    );
+    console.log(`Generating first message for user ${userId}`);
     
-    // Process the response
-    let responseText = '';
-    for await (const chunk of aiResponse) {
-      responseText += chunk.choices[0]?.delta?.content || '';
+    try {
+      // Generate the AI response
+      const aiResponse = await streamChatResponse(
+        userId,
+        prompt,
+        [{ content: prompt, isUser: true }],
+        user
+      );
+      
+      // Process the response
+      let responseText = '';
+      if (aiResponse) {
+        for await (const chunk of aiResponse) {
+          if (chunk && chunk.choices && chunk.choices[0]?.delta) {
+            responseText += chunk.choices[0].delta.content || '';
+          }
+        }
+      }
+      
+      console.log(`Generated first message: "${responseText.substring(0, 50)}..."`);
+      
+      // Save the AI message to the database
+      const [newMessage] = await db.insert(messages).values({
+        userId,
+        content: responseText || "Hey there! What's been on your mind lately?"
+      }).returning();
+      
+      // Return the new message
+      return NextResponse.json(newMessage, { status: 201 });
+    } catch (error) {
+      console.error('Error generating AI response:', error);
+      
+      // Create a fallback message if AI generation fails
+      const fallbackMessage = "Hey there! I'm your digital twin. What's been on your mind lately?";
+      
+      const [newMessage] = await db.insert(messages).values({
+        userId,
+        content: fallbackMessage
+      }).returning();
+      
+      return NextResponse.json(newMessage, { status: 201 });
     }
-    
-    // Save the AI message to the database
-    const [newMessage] = await db.insert(messages).values({
-      userId,
-      content: responseText
-    }).returning();
-    
-    // Return the new message
-    return NextResponse.json(newMessage, { status: 201 });
   } catch (error) {
     console.error('Error generating first message:', error);
     return NextResponse.json({ 

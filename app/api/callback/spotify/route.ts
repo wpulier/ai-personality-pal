@@ -1,105 +1,130 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { spotifyClient, type SpotifyError } from '@/lib/services/spotify';
-import { getDb } from '@/lib/db';
-import { users } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { updateTwinSpotifyData } from '@/lib/services/twin-service';
+import { createClient } from '@supabase/supabase-js';
+import { spotifyClient } from '@/lib/services/spotify';
 
 export async function GET(request: NextRequest) {
-  // Get the authorization code from the query parameters
+  // Extract query parameters from the request
   const searchParams = request.nextUrl.searchParams;
   const code = searchParams.get('code');
   const error = searchParams.get('error');
   const state = searchParams.get('state');
   
-  // Log error if present
+  console.log('Spotify callback received:', { 
+    code: code ? 'present' : 'not present', 
+    error: error ? error : 'none', 
+    state,
+    url: request.url,
+    host: request.headers.get('host')
+  });
+
+  // Check if there was an error during the authorization
   if (error) {
-    console.error('Spotify callback error from query params:', error);
+    console.error('Spotify auth error:', error);
+    return NextResponse.redirect(new URL('/', request.url) + `?error=${encodeURIComponent(`Spotify auth error: ${error}`)}`, {
+      status: 302,
+    });
   }
-  
-  // If there's an error or no code, redirect to the error page
-  if (error || !code) {
-    return NextResponse.redirect(new URL(`/?error=${error || 'No authorization code provided'}`, request.url));
+
+  // Check if code and state are present
+  if (!code || !state) {
+    console.error('Missing code or state in Spotify callback');
+    return NextResponse.redirect(new URL('/', request.url) + '?error=Invalid%20Spotify%20response', {
+      status: 302,
+    });
   }
-  
+
   try {
-    // Get the host from the request URL with more detailed logging
+    // Get the host for token exchange
     const host = request.headers.get('host') || request.nextUrl.hostname;
-    const fullUrl = request.url;
-    console.log('Spotify Callback Request Details:', {
-      host,
-      fullUrl,
-      code: code ? `${code.substring(0, 5)}...` : 'missing', // Log first few chars for debugging
-      state,
-      headers: {
-        host: request.headers.get('host'),
-        origin: request.headers.get('origin'),
-        referer: request.headers.get('referer')
-      },
-      environment: process.env.NODE_ENV || 'unknown'
+    
+    // Log detailed host information for debugging
+    console.log('Host information for callback:', {
+      headerHost: request.headers.get('host'),
+      urlHostname: request.nextUrl.hostname,
+      fullUrl: request.url
     });
     
-    // Exchange the authorization code for an access token
-    const accessToken = await spotifyClient.getAccessToken(code, host);
-    
-    // Get the user's Spotify data using the access token
-    const spotifyData = await spotifyClient.getUserData(accessToken);
-    
-    // Check if we're returning to the home page or updating an existing user
-    if (state === 'home') {
-      // We're creating a new twin - redirect to home with Spotify data
-      if (spotifyData.status === 'success') {
-        // Encode the Spotify data as a URL parameter
-        const encodedData = encodeURIComponent(JSON.stringify(spotifyData));
-        return NextResponse.redirect(new URL(`/?spotify=success&spotifyData=${encodedData}`, request.url));
-      } else {
-        const errorMessage = spotifyData.status === 'error' 
-          ? (spotifyData as SpotifyError).error 
-          : 'Failed to fetch Spotify data';
-        return NextResponse.redirect(new URL(`/?error=${encodeURIComponent(errorMessage)}`, request.url));
-      }
-    } else {
-      // We're updating an existing user
-      // Extract user ID from state if present
-      const userId = state ? parseInt(state) : null;
+    // If state is 'home' or 'creation', this is part of twin creation flow
+    if (state === 'home' || state === 'creation') {
+      console.log(`This is part of the twin creation flow. State: ${state}`);
       
-      if (!userId || isNaN(userId)) {
-        return NextResponse.redirect(new URL('/?error=Invalid user ID provided in state', request.url));
-      }
+      // Get Spotify data directly
+      const accessToken = await spotifyClient.getAccessToken(code, host);
+      const spotifyData = await spotifyClient.getUserData(accessToken);
       
-      if (spotifyData.status === 'success') {
-        // Get database connection
-        const db = getDb();
-        
-        // Find the user by ID
-        const existingUser = await db.query.users.findFirst({
-          where: eq(users.id, userId),
-        });
-        
-        if (!existingUser) {
-          return NextResponse.redirect(new URL('/?error=User not found', request.url));
+      // Encode this data to pass back to the creation form
+      const encodedData = encodeURIComponent(JSON.stringify(spotifyData));
+      
+      // Redirect back to the form with the Spotify data
+      return NextResponse.redirect(new URL('/', request.url) + `?spotify=success&spotifyData=${encodedData}`, {
+        status: 302,
+      });
+    } 
+    else {
+      // This is updating an existing twin
+      // Extract twin ID from state - it should be the twin's ID
+      const twinId = state;
+      console.log('Updating existing twin with ID:', twinId);
+      
+      // Create admin client to bypass RLS
+      const adminClient = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+        process.env.SUPABASE_SERVICE_KEY || '',
+        {
+          auth: {
+            autoRefreshToken: false,
+            persistSession: false
+          }
         }
+      );
+      
+      // Check if we have a valid twin
+      const { data: twin, error: twinError } = await adminClient
+        .from('twins')
+        .select('*')
+        .eq('id', twinId)
+        .single();
+      
+      console.log('Twin query result:', { 
+        found: !!twin, 
+        error: twinError ? twinError.message : 'none',
+        twinId
+      });
+      
+      if (twinError || !twin) {
+        console.error('No twin found for ID:', twinId);
         
-        console.log('Updating user with Spotify data while preserving existing data');
+        // Since we don't have a twin, treat this as part of the creation flow instead
+        console.log('Falling back to creation flow to get Spotify data for new twin');
         
-        // Update ONLY the Spotify data field, leaving all other fields untouched
-        await db.update(users)
-          .set({ spotifyData })
-          .where(eq(users.id, userId));
+        // Get Spotify data
+        const accessToken = await spotifyClient.getAccessToken(code, host);
+        const spotifyData = await spotifyClient.getUserData(accessToken);
         
-        // Redirect to the chat page with the user ID
-        return NextResponse.redirect(new URL(`/chat/${userId}?spotify=success`, request.url));
-      } else {
-        // Handle case where Spotify data couldn't be fetched
-        // Use type guard to check if error property exists
-        const errorMessage = spotifyData.status === 'error' 
-          ? (spotifyData as SpotifyError).error 
-          : 'Failed to fetch Spotify data';
-          
-        return NextResponse.redirect(new URL(`/chat/${userId}?error=${encodeURIComponent(errorMessage)}`, request.url));
+        // Encode this data to pass back to the creation form
+        const encodedData = encodeURIComponent(JSON.stringify(spotifyData));
+        
+        // Redirect back to home with the Spotify data and a more helpful message
+        return NextResponse.redirect(new URL('/', request.url) + `?spotify=success&spotifyData=${encodedData}&message=Your+Spotify+account+has+been+connected!+You+can+now+create+a+twin.`, {
+          status: 302,
+        });
       }
+      
+      // Update the twin with Spotify data
+      console.log('Updating twin with Spotify data, ID:', twin.id);
+      await updateTwinSpotifyData(twin.id, code, host);
+      
+      // Redirect to twin page
+      console.log('Spotify data updated successfully, redirecting to twin page:', twin.id);
+      return NextResponse.redirect(new URL(`/chat/${twin.id}`, request.url), {
+        status: 302,
+      });
     }
   } catch (error) {
-    console.error('Spotify callback error:', error);
-    return NextResponse.redirect(new URL(`/?error=${encodeURIComponent(error instanceof Error ? error.message : 'An unknown error occurred')}`, request.url));
+    console.error('Error processing Spotify callback:', error);
+    return NextResponse.redirect(new URL('/', request.url) + `?error=${encodeURIComponent('Error connecting Spotify: ' + (error instanceof Error ? error.message : 'Unknown error'))}`, {
+      status: 302,
+    });
   }
 } 

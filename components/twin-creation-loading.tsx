@@ -1,60 +1,54 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 export function TwinCreationLoading() {
-  const [progress, setProgress] = useState(10);
-  const [message, setMessage] = useState('Analyzing your preferences...');
-  
+  const [dots, setDots] = useState('.');
+  const [message, setMessage] = useState('Starting twin creation');
+  const messages = [
+    'Starting twin creation',
+    'Analyzing your data',
+    'Building personality model',
+    'Finalizing your digital twin',
+    'Almost ready to chat'
+  ];
+
   useEffect(() => {
-    const interval = setInterval(() => {
-      setProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          return 100;
-        }
-        return prev + 5;
-      });
-    }, 250);
-    
-    // Update messages as progress increases
-    const messageInterval = setInterval(() => {
-      if (progress < 30) {
-        setMessage('Analyzing your preferences...');
-      } else if (progress < 60) {
-        setMessage('Creating personality profile...');
-      } else if (progress < 90) {
-        setMessage('Finalizing your digital twin...');
-      } else {
-        setMessage('Almost ready to meet your twin!');
-      }
-    }, 1000);
-    
+    // Animate the dots
+    const dotsTimer = setInterval(() => {
+      setDots(prevDots => prevDots.length < 3 ? prevDots + '.' : '.');
+    }, 500);
+
+    // Cycle through messages
+    let messageIndex = 0;
+    const messageTimer = setInterval(() => {
+      messageIndex = (messageIndex + 1) % messages.length;
+      setMessage(messages[messageIndex]);
+    }, 3000);
+
     return () => {
-      clearInterval(interval);
-      clearInterval(messageInterval);
+      clearInterval(dotsTimer);
+      clearInterval(messageTimer);
     };
-  }, [progress]);
-  
+  }, []);
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 animate-fadeIn">
-      <div className="bg-white rounded-lg p-8 max-w-md w-full shadow-xl">
-        <div className="flex justify-center mb-6">
-          <div className="w-16 h-16 border-t-4 border-blue-500 border-solid rounded-full animate-spin"></div>
+    <div className="flex flex-col items-center justify-center py-10 bg-gradient-to-br from-indigo-50 via-blue-50 to-purple-50 rounded-xl shadow-sm border border-indigo-100 px-6">
+      <div className="text-center p-8 bg-white/90 backdrop-blur-sm rounded-xl shadow-lg max-w-md w-full border border-indigo-100">
+        <div className="mb-6 text-indigo-600 font-bold text-xl">Creating Your Digital Twin</div>
+        
+        <div className="flex justify-center space-x-3 mb-8">
+          <div className="w-3 h-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full animate-pulse" style={{ animationDuration: '0.9s' }}></div>
+          <div className="w-3 h-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full animate-pulse" style={{ animationDuration: '0.9s', animationDelay: '0.3s' }}></div>
+          <div className="w-3 h-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full animate-pulse" style={{ animationDuration: '0.9s', animationDelay: '0.6s' }}></div>
         </div>
         
-        <h3 className="text-2xl font-bold mb-2 text-center text-gray-800">Creating Your Digital Twin</h3>
-        <p className="text-gray-600 text-center mb-6">
-          {message}
+        <p className="text-gray-600 mb-2">
+          {message}{dots}
         </p>
-        
-        <div className="w-full bg-gray-200 rounded-full h-2.5 mb-2">
-          <div 
-            className="bg-blue-600 h-2.5 rounded-full transition-all duration-300 ease-out"
-            style={{ width: `${progress}%` }}
-          ></div>
-        </div>
-        <div className="text-right text-sm text-gray-500">{progress}%</div>
+        <p className="text-gray-500 text-sm">
+          This may take a minute...
+        </p>
       </div>
     </div>
   );

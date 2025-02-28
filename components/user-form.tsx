@@ -1,91 +1,80 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { FaSpotify } from 'react-icons/fa';
 import { TwinCreationLoading } from './twin-creation-loading';
+import { createTwin } from '@/lib/services/twin-service';
+import { handleAuthError } from '@/lib/supabase/client';
 
 interface UserFormProps {
-  onError?: (error: string | null) => void;
+  onTwinCreated?: (twinId: number) => void;
+  authUserId?: string;
+  onError?: (error: string) => void;
 }
 
-export function UserForm({ onError }: UserFormProps) {
+export function UserForm({ onTwinCreated, authUserId, onError }: UserFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [isCreatingTwin, setIsCreatingTwin] = useState(false);
   const [name, setName] = useState('');
   const [bio, setBio] = useState('');
   const [letterboxdUrl, setLetterboxdUrl] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isCreatingTwin, setIsCreatingTwin] = useState(false);
-  const [spotifyStatus, setSpotifyStatus] = useState<'not_connected' | 'connected' | 'error'>('not_connected');
-  const [spotifyData, setSpotifyData] = useState<any>(null);
-  const [validationErrors, setValidationErrors] = useState<{
-    name?: string;
-    bio?: string;
-    letterboxdUrl?: string;
-  }>({});
+  const [spotifyStatus, setSpotifyStatus] = useState<'none' | 'connected' | 'error'>('none');
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [spotifyData, setSpotifyData] = useState(null);
 
   // Load saved form data from localStorage on initial render
   useEffect(() => {
     const savedName = localStorage.getItem('twin_form_name');
     const savedBio = localStorage.getItem('twin_form_bio');
-    const savedLetterboxdUrl = localStorage.getItem('twin_form_letterboxd');
+    const savedLetterboxd = localStorage.getItem('twin_form_letterboxd');
     
     if (savedName) setName(savedName);
     if (savedBio) setBio(savedBio);
-    if (savedLetterboxdUrl) setLetterboxdUrl(savedLetterboxdUrl);
+    if (savedLetterboxd) setLetterboxdUrl(savedLetterboxd);
   }, []);
 
-  // Save form data to localStorage when it changes
+  // Check for Spotify authorization response
   useEffect(() => {
-    localStorage.setItem('twin_form_name', name);
-    localStorage.setItem('twin_form_bio', bio);
-    localStorage.setItem('twin_form_letterboxd', letterboxdUrl);
-  }, [name, bio, letterboxdUrl]);
-
-  // Check URL parameters on component mount to see if returning from Spotify auth
-  useEffect(() => {
-    const spotifySuccess = searchParams.get('spotify');
+    const spotifyStatus = searchParams.get('spotify');
     const spotifyError = searchParams.get('error');
     const spotifyDataParam = searchParams.get('spotifyData');
     
-    if (spotifySuccess === 'success' && spotifyDataParam) {
+    // Handle returned Spotify data
+    if (spotifyStatus === 'success' && spotifyDataParam) {
       try {
         // Decode and parse the Spotify data from URL
         const decodedData = JSON.parse(decodeURIComponent(spotifyDataParam));
+        console.log('Spotify data received:', decodedData);
         setSpotifyData(decodedData);
         setSpotifyStatus('connected');
-        onError?.('Spotify connected successfully!');
+        setErrorMessage('Spotify connected successfully!');
       } catch (e) {
         console.error('Error parsing Spotify data:', e);
         setSpotifyStatus('error');
-        onError?.('Error connecting Spotify: Invalid data format');
+        setErrorMessage('Error connecting Spotify: Invalid data format');
       }
     } else if (spotifyError) {
       setSpotifyStatus('error');
-      onError?.(`Error connecting Spotify: ${spotifyError}`);
+      setErrorMessage(spotifyError);
     }
-  }, [searchParams, onError]);
+  }, [searchParams]);
 
   const validateForm = () => {
-    const errors: {
-      name?: string;
-      bio?: string;
-      letterboxdUrl?: string;
-    } = {};
-    let isValid = true;
-
-    // Only validate bio as it's the most important field
-    if (!bio.trim()) {
-      errors.bio = 'Bio is required';
-      isValid = false;
-    } else if (bio.trim().length < 3) {
-      errors.bio = 'Bio must be at least 3 characters';
-      isValid = false;
+    const errors: Record<string, string> = {};
+    
+    if (!bio || bio.trim().length < 3) {
+      errors.bio = 'Bio is required and must be at least 3 characters';
     }
-
+    
+    if (letterboxdUrl && !letterboxdUrl.includes('letterboxd.com/')) {
+      errors.letterboxdUrl = 'Invalid Letterboxd URL';
+    }
+    
     setValidationErrors(errors);
-    return isValid;
+    return Object.keys(errors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -93,175 +82,210 @@ export function UserForm({ onError }: UserFormProps) {
     
     // Clear previous errors
     setValidationErrors({});
-    onError?.(null);
+    setErrorMessage(null);
     
     // Validate form
     if (!validateForm()) {
       return;
     }
-    
+
+    setIsCreatingTwin(true);
+
     try {
-      setIsSubmitting(true);
-      setIsCreatingTwin(true);
-      // Don't show error message text when starting creation
+      // Create the twin with Spotify data if available
+      console.log('Creating twin with auth_user_id:', authUserId);
+      console.log('Including Spotify data:', spotifyData ? 'Yes' : 'No');
       
-      const response = await fetch('/api/users', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: name || 'Anonymous',
-          bio,
-          letterboxdUrl: letterboxdUrl || undefined,
-          spotifyData: spotifyData || undefined
-        }),
+      const twin = await createTwin({
+        name: name || 'Anonymous',
+        bio,
+        letterboxd_url: letterboxdUrl || null,
+        auth_user_id: authUserId,
+        spotify_data: spotifyData // Include the Spotify data if available
       });
-      
-      if (response.ok) {
-        const data = await response.json();
-        // Don't show success message text, the animation will indicate progress
-        
-        // Clear form data from localStorage on successful submission
-        localStorage.removeItem('twin_form_name');
-        localStorage.removeItem('twin_form_bio');
-        localStorage.removeItem('twin_form_letterboxd');
-        
-        // Short delay to allow the animation to complete its progress
-        setTimeout(() => {
-          router.push(`/chat/${data.id}`);
-        }, 1500);
+
+      if (!twin) {
+        throw new Error('Failed to create twin');
+      }
+
+      // Clear saved form data
+      localStorage.removeItem('twin_form_name');
+      localStorage.removeItem('twin_form_bio');
+      localStorage.removeItem('twin_form_letterboxd');
+
+      // Show success message
+      setErrorMessage('Twin created successfully!');
+
+      // Redirect or call the callback
+      if (onTwinCreated) {
+        onTwinCreated(twin.id);
       } else {
-        // Generic error handling
-        const errorData = await response.json();
-        
-        if (errorData.details && Array.isArray(errorData.details)) {
-          // Simple validation error handling
-          const errors: Record<string, string> = {};
-          
-          errorData.details.forEach((error: any) => {
-            if (error.path && error.path[0] && error.message) {
-              errors[error.path[0]] = error.message;
-            }
-          });
-          
-          if (Object.keys(errors).length > 0) {
-            setValidationErrors(errors);
-          } else {
-            onError?.('Please check the form for errors');
-          }
-        } else {
-          onError?.(errorData.error || 'Failed to create digital twin');
-        }
+        router.push(`/chat/${twin.id}`);
       }
     } catch (error) {
-      console.error('Error creating digital twin:', error);
-      onError?.('Network error. Please try again later.');
-    } finally {
-      setIsSubmitting(false);
-      // Keep isCreatingTwin true if we're successful and waiting for redirect
+      console.error('Error creating twin:', error);
+      
+      // Check if this is an auth error (like invalid refresh token)
+      const isAuthError = await handleAuthError(error);
+      if (isAuthError) {
+        // If auth error was handled, show a specific message and redirect to login
+        setErrorMessage('Your session has expired. Please sign in again.');
+        if (onError) onError('Your session has expired. Please sign in again.');
+        setIsCreatingTwin(false);
+        
+        // Save form data before redirecting
+        localStorage.setItem('twin_form_name', name);
+        localStorage.setItem('twin_form_bio', bio);
+        localStorage.setItem('twin_form_letterboxd', letterboxdUrl);
+        
+        // Redirect after a short delay
+        setTimeout(() => {
+          const currentUrl = window.location.href;
+          const returnPath = encodeURIComponent(currentUrl);
+          router.push(`/auth/login?returnTo=${returnPath}`);
+        }, 2000);
+        return;
+      }
+      
+      const errorMsg = error instanceof Error ? error.message : 'Failed to create twin';
+      setErrorMessage(errorMsg);
+      if (onError) onError(errorMsg);
+      setIsCreatingTwin(false);
     }
   };
-  
+
+  const handleSpotifyConnect = () => {
+    console.log('Connecting to Spotify with user ID:', authUserId);
+    
+    // Store form data in localStorage to prevent loss during redirect
+    localStorage.setItem('twin_form_name', name);
+    localStorage.setItem('twin_form_bio', bio);
+    localStorage.setItem('twin_form_letterboxd', letterboxdUrl);
+    console.log('Saved form data to localStorage before Spotify redirect');
+    
+    // Get the current hostname and port for proper callback
+    const currentHost = window.location.host;
+    console.log('Current host for Spotify redirect:', currentHost);
+    
+    // Redirect to Spotify auth with user ID in state if available,
+    // otherwise use creation=true for the twin creation flow
+    if (authUserId) {
+      console.log('Redirecting to Spotify auth with user ID:', authUserId);
+      window.location.href = `/api/auth/spotify?userId=${authUserId}&host=${encodeURIComponent(currentHost)}`;
+    } else {
+      console.log('No user ID available, using creation=true state for twin creation flow');
+      window.location.href = `/api/auth/spotify?creation=true&host=${encodeURIComponent(currentHost)}`;
+    }
+  };
+
   return (
-    <>
-      {isCreatingTwin && <TwinCreationLoading />}
-      <form onSubmit={handleSubmit} className="w-full space-y-4">
-        <div className="space-y-2">
-          <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-            Your Name
-          </label>
-          <input
-            id="name"
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Enter your name"
-            className={`w-full rounded-md border ${validationErrors.name ? 'border-red-500' : 'border-gray-300'} px-3 py-2 text-black placeholder:text-gray-400`}
-            disabled={isSubmitting}
-          />
-          {validationErrors.name && (
-            <p className="text-red-500 text-xs mt-1">{validationErrors.name}</p>
-          )}
+    <div className="space-y-6 py-6">
+      <h2 className="text-2xl font-bold text-center mb-4 text-gray-800">Create Your Digital Twin</h2>
+      
+      {errorMessage && (
+        <div className={`p-4 rounded-lg shadow-sm ${errorMessage.includes('Error') ? 'bg-red-50 text-red-800 border border-red-200' : 'bg-green-50 text-green-800 border border-green-200'} animate-fadeIn`}>
+          {errorMessage}
         </div>
-        
-        <div className="space-y-2">
-          <label htmlFor="bio" className="block text-sm font-medium text-gray-700">
-            About You
-          </label>
-          <textarea
-            id="bio"
-            value={bio}
-            onChange={(e) => setBio(e.target.value)}
-            placeholder="Share a brief description about yourself (at least 3 characters)..."
-            className={`w-full rounded-md border ${validationErrors.bio ? 'border-red-500' : 'border-gray-300'} px-3 py-2 text-black placeholder:text-gray-400 min-h-[120px]`}
-            disabled={isSubmitting}
-          />
-          {validationErrors.bio && (
-            <p className="text-red-500 text-xs mt-1">{validationErrors.bio}</p>
-          )}
-        </div>
-        
-        <div className="space-y-2">
-          <label htmlFor="letterboxdUrl" className="block text-sm font-medium text-gray-700">
-            Letterboxd Profile URL (Optional)
-          </label>
-          <input
-            id="letterboxdUrl"
-            type="text"
-            value={letterboxdUrl}
-            onChange={(e) => setLetterboxdUrl(e.target.value)}
-            placeholder="https://letterboxd.com/yourusername"
-            className={`w-full rounded-md border ${validationErrors.letterboxdUrl ? 'border-red-500' : 'border-gray-300'} px-3 py-2 text-black placeholder:text-gray-400`}
-            disabled={isSubmitting}
-          />
-          {validationErrors.letterboxdUrl && (
-            <p className="text-red-500 text-xs mt-1">{validationErrors.letterboxdUrl}</p>
-          )}
-        </div>
-        
-        <div className="space-y-2">
-          <label className="block text-sm font-medium text-gray-700">
-            Spotify Music Preferences (Optional)
-          </label>
-          <div className="w-full flex items-center justify-between p-3 border border-gray-300 rounded-md bg-gray-50">
-            {spotifyStatus === 'connected' ? (
-              <div className="flex items-center text-green-700">
-                <FaSpotify className="mr-2" size={20} />
-                <span className="font-medium">Spotify Connected</span>
-                <span className="ml-2 text-xs text-gray-500">
-                  ({spotifyData?.topArtists?.length || 0} artists, {spotifyData?.recentTracks?.length || 0} tracks)
-                </span>
-              </div>
-            ) : (
-              <div className="w-full flex items-center justify-between">
-                <span className="text-gray-500 text-sm">Connect your Spotify account to enhance your twin's music preferences</span>
-                <a 
-                  href="/api/auth/spotify?redirect=home"
-                  onClick={() => {
-                    // Ensure form data is saved before redirecting
-                    localStorage.setItem('twin_form_name', name);
-                    localStorage.setItem('twin_form_bio', bio);
-                    localStorage.setItem('twin_form_letterboxd', letterboxdUrl);
-                  }}
-                  className="flex-shrink-0 flex items-center justify-center py-2 px-4 bg-green-600 hover:bg-green-700 text-white rounded-full transition-colors text-sm font-medium"
-                >
-                  <FaSpotify className="mr-2" size={16} />
-                  {spotifyStatus === 'error' ? 'Retry Connection' : 'Connect Spotify'}
-                </a>
-              </div>
+      )}
+      
+      {isCreatingTwin ? (
+        <TwinCreationLoading />
+      ) : (
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-1">
+            <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+              Name (optional)
+            </label>
+            <input
+              type="text"
+              id="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="What should we call you? (Optional)"
+              className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-3 border transition-colors bg-white text-black"
+            />
+          </div>
+          
+          <div className="space-y-1">
+            <label htmlFor="bio" className="block text-sm font-medium text-gray-700">
+              Bio <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              id="bio"
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+              rows={4}
+              placeholder="Tell us about yourself - hobbies, interests, personality, music taste, etc."
+              className={`mt-1 block w-full rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-3 border transition-colors bg-white text-black ${
+                validationErrors.bio ? 'border-red-500 bg-red-50' : 'border-gray-300'
+              }`}
+            ></textarea>
+            {validationErrors.bio && (
+              <p className="mt-1 text-sm text-red-600">{validationErrors.bio}</p>
             )}
           </div>
-        </div>
-        
-        <button
-          type="submit"
-          className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md font-medium text-base"
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? 'Creating...' : 'Create My Digital Twin'}
-        </button>
-      </form>
-    </>
+          
+          <div className="space-y-1">
+            <label htmlFor="letterboxdUrl" className="block text-sm font-medium text-gray-700">
+              Letterboxd Profile URL (optional)
+            </label>
+            <input
+              type="text"
+              id="letterboxdUrl"
+              value={letterboxdUrl}
+              onChange={(e) => setLetterboxdUrl(e.target.value)}
+              placeholder="https://letterboxd.com/yourusername/"
+              className={`mt-1 block w-full rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-3 border transition-colors bg-white text-black ${
+                validationErrors.letterboxdUrl ? 'border-red-500 bg-red-50' : 'border-gray-300'
+              }`}
+            />
+            {validationErrors.letterboxdUrl && (
+              <p className="mt-1 text-sm text-red-600">{validationErrors.letterboxdUrl}</p>
+            )}
+            <p className="mt-1 text-sm text-gray-500">
+              Your Letterboxd profile will be used to enhance your twin with your movie preferences.
+            </p>
+          </div>
+          
+          <div className="border border-gray-200 rounded-lg p-5 bg-gradient-to-r from-gray-50 to-white shadow-sm">
+            <div className="flex justify-between items-center mb-2">
+              <div>
+                <h3 className="font-medium text-gray-800">Connect Spotify</h3>
+                <span className="text-gray-500 text-sm">Connect your Spotify account to enhance your twin's music preferences</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleSpotifyConnect}
+                className={`flex-shrink-0 flex items-center justify-center py-2 px-4 rounded-lg transition-colors text-sm font-medium shadow-sm ${
+                  spotifyStatus === 'connected' 
+                  ? 'bg-green-100 text-green-800 hover:bg-green-200' 
+                  : 'bg-green-600 hover:bg-green-700 text-white'
+                }`}
+              >
+                <FaSpotify className="mr-2" />
+                {spotifyStatus === 'connected' ? 'Connected!' : 'Connect'}
+              </button>
+            </div>
+            {spotifyStatus === 'connected' && (
+              <p className="text-sm text-green-600 bg-green-50 p-2 rounded-lg mt-2">
+                Your Spotify account is connected! Your twin will reflect your music preferences.
+              </p>
+            )}
+            {spotifyStatus === 'error' && (
+              <p className="text-sm text-red-600 bg-red-50 p-2 rounded-lg mt-2">
+                Failed to connect Spotify. Please try again.
+              </p>
+            )}
+          </div>
+          
+          <button
+            type="submit"
+            className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-base font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
+          >
+            Create Your Digital Twin
+          </button>
+        </form>
+      )}
+    </div>
   );
 } 
