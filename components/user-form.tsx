@@ -111,13 +111,22 @@ function UserFormContent({ onTwinCreated, authUserId, onError }: UserFormProps) 
       console.log('Creating twin with auth_user_id:', authUserId);
       console.log('Including Spotify data:', spotifyData ? 'Yes' : 'No');
       
-      const twin = await createTwin({
-        name: name || 'Anonymous',
-        bio,
-        letterboxd_url: letterboxdUrl || null,
-        auth_user_id: authUserId,
-        spotify_data: spotifyData // Include the Spotify data if available
+      // Set a timeout for the twin creation process
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Twin creation timed out')), 60000); // 60 second timeout
       });
+      
+      // Race the twin creation against the timeout
+      const twin = await Promise.race([
+        createTwin({
+          name: name || 'Anonymous',
+          bio,
+          letterboxd_url: letterboxdUrl || null,
+          auth_user_id: authUserId,
+          spotify_data: spotifyData // Include the Spotify data if available
+        }),
+        timeoutPromise
+      ]) as any;
 
       if (!twin) {
         throw new Error('Failed to create twin');
@@ -139,6 +148,14 @@ function UserFormContent({ onTwinCreated, authUserId, onError }: UserFormProps) 
       }
     } catch (error) {
       console.error('Error creating twin:', error);
+      
+      // Check if this is a timeout error
+      if (error instanceof Error && error.message === 'Twin creation timed out') {
+        setErrorMessage('Creating your twin is taking longer than expected. Please try again with a simpler bio or try again later.');
+        if (onError) onError('Creating your twin is taking longer than expected. Please try again with a simpler bio or try again later.');
+        setIsCreatingTwin(false);
+        return;
+      }
       
       // Check if this is an auth error (like invalid refresh token)
       const isAuthError = await handleAuthError(error);

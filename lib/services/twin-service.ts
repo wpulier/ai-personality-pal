@@ -259,6 +259,10 @@ export async function createTwin(twinData: {
     if (!isServer) {
       console.log('Running on client-side, using API endpoint to create twin');
       try {
+        // Set a longer timeout for the fetch request (30 seconds)
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
+        
         const response = await fetch('/api/twins', {
           method: 'POST',
           headers: {
@@ -274,10 +278,54 @@ export async function createTwin(twinData: {
             spotify_data: spotifyData,
             twin_personality: twinPersonality
           }),
+          signal: controller.signal
         });
+        
+        clearTimeout(timeoutId);
         
         if (!response.ok) {
           console.error('Error creating twin from API:', response.statusText);
+          
+          // If we get a timeout or server error, try a simplified approach
+          if (response.status === 504 || response.status === 500) {
+            console.log('API timeout or server error, trying simplified twin creation');
+            
+            // Create a simplified twin personality if the API times out
+            const simplifiedPersonality = {
+              interests: ['movies', 'music', 'art'],
+              style: 'casual and friendly',
+              traits: ['creative', 'thoughtful', 'curious'],
+              summary: twinData.bio
+            };
+            
+            // Try again with a simplified request
+            const retryResponse = await fetch('/api/twins/simplified', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                name: twinData.name,
+                bio: twinData.bio,
+                letterboxd_url: twinData.letterboxd_url,
+                spotify_url: twinData.spotify_url,
+                auth_user_id: twinData.auth_user_id,
+                letterboxd_data: letterboxdData,
+                spotify_data: spotifyData,
+                twin_personality: simplifiedPersonality
+              })
+            });
+            
+            if (!retryResponse.ok) {
+              console.error('Error with simplified twin creation:', retryResponse.statusText);
+              return null;
+            }
+            
+            const retryData = await retryResponse.json();
+            console.log('Twin created successfully via simplified API, ID:', retryData.id);
+            return retryData;
+          }
+          
           return null;
         }
         
@@ -286,6 +334,52 @@ export async function createTwin(twinData: {
         return data;
       } catch (error) {
         console.error('Error calling twin creation API:', error);
+        
+        // If we get an abort error (timeout), try a simplified approach
+        if (error instanceof Error && error.name === 'AbortError') {
+          console.log('API request timed out, trying simplified twin creation');
+          
+          try {
+            // Create a simplified twin personality if the API times out
+            const simplifiedPersonality = {
+              interests: ['movies', 'music', 'art'],
+              style: 'casual and friendly',
+              traits: ['creative', 'thoughtful', 'curious'],
+              summary: twinData.bio
+            };
+            
+            // Try again with a simplified request
+            const retryResponse = await fetch('/api/twins/simplified', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                name: twinData.name,
+                bio: twinData.bio,
+                letterboxd_url: twinData.letterboxd_url,
+                spotify_url: twinData.spotify_url,
+                auth_user_id: twinData.auth_user_id,
+                letterboxd_data: letterboxdData,
+                spotify_data: spotifyData,
+                twin_personality: simplifiedPersonality
+              })
+            });
+            
+            if (!retryResponse.ok) {
+              console.error('Error with simplified twin creation:', retryResponse.statusText);
+              return null;
+            }
+            
+            const retryData = await retryResponse.json();
+            console.log('Twin created successfully via simplified API, ID:', retryData.id);
+            return retryData;
+          } catch (retryError) {
+            console.error('Error with simplified twin creation:', retryError);
+            return null;
+          }
+        }
+        
         return null;
       }
     }
