@@ -87,7 +87,6 @@ export default function Home() {
       <div className="w-full max-w-lg bg-gray-900 rounded-xl shadow-2xl border border-gray-800 overflow-hidden">
         {/* Why Create a Twin Section */}
         <div className="p-6 md:p-8">
-          <h2 className="text-2xl font-bold text-white mb-6">Why Create a Twin?</h2>
           
           <div className="space-y-6">
             <div className="flex gap-4">
@@ -96,7 +95,7 @@ export default function Home() {
               </div>
               <div>
                 <h3 className="font-semibold text-blue-400 mb-1">Personal AI Companion</h3>
-                <p className="text-gray-300">Your AI twin understands your preferences and communicates in your style.</p>
+                <p className="text-gray-300 hidden md:block">Your AI twin understands your preferences and communicates in your style.</p>
               </div>
             </div>
             
@@ -106,7 +105,7 @@ export default function Home() {
               </div>
               <div>
                 <h3 className="font-semibold text-indigo-400 mb-1">Enhanced With Your Data</h3>
-                <p className="text-gray-300">Connect your Spotify and Letterboxd to make your twin more authentic.</p>
+                <p className="text-gray-300 hidden md:block">Connect your Spotify and Letterboxd to make your twin more authentic.</p>
               </div>
             </div>
             
@@ -116,7 +115,7 @@ export default function Home() {
               </div>
               <div>
                 <h3 className="font-semibold text-purple-400 mb-1">Customizable & Evolving</h3>
-                <p className="text-gray-300">Edit your twin's bio and preferences anytime to keep it up to date.</p>
+                <p className="text-gray-300 hidden md:block">Edit your twin's bio and preferences anytime to keep it up to date.</p>
               </div>
             </div>
           </div>
