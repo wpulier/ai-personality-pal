@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { UserForm } from '@/components/user-form';
@@ -11,6 +11,39 @@ export default function Create() {
   const { user, signOut } = useAuth();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const router = useRouter();
+
+  // Redirect unauthenticated users to sign-up page
+  useEffect(() => {
+    if (!user) {
+      router.push('/auth/signup');
+    }
+  }, [user, router]);
+
+  // Check if user already has a twin and redirect them
+  useEffect(() => {
+    const checkExistingTwin = async () => {
+      if (!user) return;
+      
+      try {
+        const response = await fetch('/api/twins');
+        if (response.ok) {
+          const data = await response.json();
+          
+          // If user has at least one twin, redirect to their chat page
+          if (data.length > 0) {
+            console.log('User already has a twin, redirecting to chat page');
+            router.push(`/chat/${data[0].id}`);
+          }
+        } else {
+          console.error('Failed to check for existing twins');
+        }
+      } catch (error) {
+        console.error('Error checking for existing twins:', error);
+      }
+    };
+
+    checkExistingTwin();
+  }, [user, router]);
 
   const handleTwinCreated = (twinId: number) => {
     // Immediately redirect to chat with the new twin
@@ -33,42 +66,31 @@ export default function Create() {
         backgroundSize: '400px',
       }}
     >
-      <div className="w-full max-w-lg">
-        <header className="mb-6 text-center">
-          <Link href="/" className="block mb-4">
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-500 to-indigo-600 bg-clip-text text-transparent">
-              AI Personality Pal
-            </h1>
-          </Link>
-          <p className="text-white">
-            Create your digital twin powered by AI
-          </p>
-        </header>
-
-        <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-lg border border-indigo-100 p-6 md:p-8">
-          {errorMessage && (
-            <div className="mb-6 p-4 rounded-lg bg-red-50 border border-red-200 text-red-800">
-              {errorMessage}
-            </div>
-          )}
-          
-          <UserForm 
-            authUserId={user?.id}
-            onError={(error) => setErrorMessage(error)}
-            onTwinCreated={handleTwinCreated}
-          />
-          
-          {/* Only show sign in/sign up prompt if user is not logged in */}
-          {!user && (
-            <div className="text-center mt-6 text-sm text-gray-500">
-              <p>
-                Want to save your twins? <Link href="/auth/login" className="text-blue-600 hover:text-blue-800 font-medium">Sign in</Link> or <Link href="/auth/signup" className="text-blue-600 hover:text-blue-800 font-medium">Create an account</Link>
-              </p>
-            </div>
-          )}
-          
-          {/* Show a different message for logged-in users */}
-          {user && (
+      {!user ? (
+        <div className="w-full max-w-lg bg-white/90 backdrop-blur-sm rounded-xl shadow-lg border border-indigo-100 p-6 md:p-8 text-center">
+          <div className="flex justify-center space-x-3 mt-8">
+            <div className="w-3 h-3 bg-gradient-to-br from-blue-400 to-indigo-400 rounded-full animate-pulse" style={{ animationDuration: '0.9s' }}></div>
+            <div className="w-3 h-3 bg-gradient-to-br from-blue-400 to-indigo-400 rounded-full animate-pulse" style={{ animationDuration: '0.9s', animationDelay: '0.3s' }}></div>
+            <div className="w-3 h-3 bg-gradient-to-br from-blue-400 to-indigo-400 rounded-full animate-pulse" style={{ animationDuration: '0.9s', animationDelay: '0.6s' }}></div>
+          </div>
+          <p className="mt-4 text-gray-600">Redirecting to sign up...</p>
+        </div>
+      ) : (
+        <div className="w-full max-w-lg">
+          <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-lg border border-indigo-100 p-6 md:p-8">
+            {errorMessage && (
+              <div className="mb-6 p-4 rounded-lg bg-red-50 border border-red-200 text-red-800">
+                {errorMessage}
+              </div>
+            )}
+            
+            <UserForm 
+              authUserId={user?.id}
+              onError={(error) => setErrorMessage(error)}
+              onTwinCreated={handleTwinCreated}
+            />
+            
+            {/* Show a message for logged-in users */}
             <div className="text-center mt-6">
               <p className="text-sm text-gray-500 mb-3">
                 Your twin will automatically be saved to your account.
@@ -80,9 +102,9 @@ export default function Create() {
                 <FaSignOutAlt className="mr-1" /> Sign Out
               </button>
             </div>
-          )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 } 

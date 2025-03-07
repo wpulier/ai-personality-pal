@@ -160,6 +160,47 @@ export async function createTwin(twinData: {
       spotify_data: twinData.spotify_data ? 'provided' : 'not provided'
     });
     
+    // If auth_user_id is provided, check if the user already has a twin
+    if (twinData.auth_user_id) {
+      console.log('Checking if user already has a twin:', twinData.auth_user_id);
+      
+      // Create a client to check for existing twins
+      const checkClient = isServer 
+        ? createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+            process.env.SUPABASE_SERVICE_KEY || '',
+            { auth: { autoRefreshToken: false, persistSession: false } }
+          )
+        : supabase;
+      
+      const { data: existingTwins, error: checkError } = await checkClient
+        .from('twins')
+        .select('id')
+        .eq('auth_user_id', twinData.auth_user_id)
+        .limit(1);
+      
+      if (checkError) {
+        console.error('Error checking for existing twins:', checkError);
+        // Continue anyway, but log the error
+      } else if (existingTwins && existingTwins.length > 0) {
+        console.log('User already has a twin with ID:', existingTwins[0].id);
+        
+        // Fetch the complete twin data
+        const { data: existingTwin, error: fetchError } = await checkClient
+          .from('twins')
+          .select('*')
+          .eq('id', existingTwins[0].id)
+          .single();
+        
+        if (fetchError) {
+          console.error('Error fetching existing twin:', fetchError);
+        } else {
+          console.log('Returning existing twin instead of creating a new one');
+          return normalizeTwinData(existingTwin);
+        }
+      }
+    }
+    
     // Process Letterboxd data if URL is provided, using API endpoint for client-side safety
     let letterboxdData: any = { status: 'not_provided' };
     if (twinData.letterboxd_url) {

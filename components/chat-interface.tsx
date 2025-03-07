@@ -333,9 +333,9 @@ export default function ChatInterface({ twinId }: ChatInterfaceProps) {
           <div className="text-gray-800 mb-6">
             We couldn&apos;t find the digital twin you&apos;re looking for.
           </div>
-          <Link href="/" 
+          <Link href="/auth/signup" 
             className="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors">
-            Create a Twin
+            Sign Up to Create a Twin
           </Link>
         </div>
       </div>

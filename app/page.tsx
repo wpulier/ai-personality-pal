@@ -121,7 +121,7 @@ export default function Home() {
           </div>
           
           <div className="mt-8">
-            <Link href="/create" className="inline-flex items-center justify-center w-full py-3 px-6 rounded-lg shadow-md text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 font-medium transition-all">
+            <Link href="/auth/signup" className="inline-flex items-center justify-center w-full py-3 px-6 rounded-lg shadow-md text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 font-medium transition-all">
               Create Your Twin <FaArrowRight className="ml-2" />
             </Link>
           </div>
@@ -131,7 +131,7 @@ export default function Home() {
             <div className="mt-4 md:mt-6 pt-3 md:pt-4 border-t border-gray-700">
               <div className="text-center text-xs md:text-sm">
                 <p className="text-gray-400 mb-2 md:mb-3">
-                  Create an account to save your twins and access them anytime
+                  Create an account to save your twin and access it anytime
                 </p>
                 <div className="flex space-x-2 md:space-x-3 px-[5%] md:px-0">
                   <Link href="/auth/signup" className="flex-1 py-1.5 md:py-2 px-2 md:px-3 rounded text-xs md:text-sm text-white bg-blue-600 hover:bg-blue-700 transition-colors text-center">
@@ -141,9 +141,6 @@ export default function Home() {
                     Sign In
                   </Link>
                 </div>
-                <p className="mt-2 md:mt-3 text-xs text-gray-500">
-                  Don't want to sign up? You can still <Link href="/create" className="text-blue-400 hover:text-blue-300">create a twin</Link> without an account.
-                </p>
               </div>
             </div>
           )}

@@ -66,6 +66,44 @@ export async function POST(request: NextRequest) {
       );
     }
     
+    // Check if the user already has a twin
+    const { data: existingUserTwins, error: userTwinsError } = await supabase
+      .from('twins')
+      .select('id, name')
+      .eq('auth_user_id', userId)
+      .limit(1);
+    
+    if (userTwinsError) {
+      console.error('Error checking for existing user twins:', userTwinsError);
+      return NextResponse.json(
+        { error: 'Failed to check for existing twins', details: userTwinsError.message },
+        { status: 500 }
+      );
+    }
+    
+    if (existingUserTwins && existingUserTwins.length > 0) {
+      console.log(`User ${userId} already has a twin (ID: ${existingUserTwins[0].id})`);
+      
+      // If the user is trying to claim the twin they already own, just return success
+      if (existingUserTwins[0].id === twinId) {
+        return NextResponse.json({
+          success: true,
+          message: 'Twin is already claimed by you',
+          twin: existingTwin
+        });
+      }
+      
+      return NextResponse.json(
+        { 
+          error: 'You already have a twin', 
+          details: 'Each user can only have one twin',
+          existingTwinId: existingUserTwins[0].id,
+          existingTwinName: existingUserTwins[0].name
+        },
+        { status: 409 }
+      );
+    }
+    
     // Update the twin with the user ID
     const { data, error } = await supabase
       .from('twins')

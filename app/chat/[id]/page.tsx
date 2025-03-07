@@ -111,33 +111,33 @@ function ProfileButton() {
     <div className="relative">
       <button 
         onClick={(e) => { e.stopPropagation(); setIsOpen(!isOpen); }}
-        className="p-2 md:p-2.5 rounded-full hover:bg-blue-50 text-blue-600 transition-all duration-200 border border-transparent hover:border-blue-100 hover:shadow-sm flex items-center justify-center"
+        className="p-1 md:p-2.5 rounded-full hover:bg-blue-50 text-blue-600 transition-colors"
         aria-label="User profile"
       >
-        <FaUser size={18} className="text-blue-600" />
+        <FaUser size={18} className="md:text-lg" />
       </button>
       
       {isOpen && (
         <div 
-          className="absolute right-0 mt-2 w-56 bg-white/95 backdrop-blur-md rounded-lg shadow-lg z-20 border border-gray-100 overflow-hidden transition-all duration-300 animate-fadeIn"
+          className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-20"
           onClick={handleDropdownClick}
         >
           <div className="py-1">
             {user ? (
               <>
-                <div className="px-4 py-3 text-xs text-gray-500 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50">
+                <div className="px-4 py-2 text-xs text-gray-500 border-b">
                   Signed in as<br />
-                  <span className="font-semibold text-gray-700 truncate block mt-0.5">{user.email}</span>
+                  <span className="font-semibold text-gray-700 truncate block">{user.email}</span>
                 </div>
                 <button
                   onClick={goToProfile}
-                  className="block w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors duration-200 font-medium"
+                  className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                 >
                   Profile
                 </button>
                 <button
                   onClick={handleSignOut}
-                  className="block w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors duration-200 font-medium"
+                  className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
                 >
                   Sign Out
                 </button>
@@ -146,13 +146,13 @@ function ProfileButton() {
               <>
                 <button
                   onClick={goToLogin}
-                  className="block w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors duration-200 font-medium"
+                  className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                 >
                   Sign In
                 </button>
                 <Link 
                   href="/auth/signup"
-                  className="block w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors duration-200 font-medium"
+                  className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                   onClick={() => setIsOpen(false)}
                 >
                   Create Account
@@ -227,6 +227,18 @@ export default function ChatPage() {
       const result = await response.json();
       
       if (!response.ok) {
+        // Special handling for the case where user already has a twin
+        if (response.status === 409 && result.existingTwinId) {
+          console.log(`User already has a twin (ID: ${result.existingTwinId})`);
+          setError(`You already have a twin named "${result.existingTwinName || 'Unknown'}". Redirecting to your existing twin...`);
+          
+          // Redirect to the existing twin after a short delay
+          setTimeout(() => {
+            router.push(`/chat/${result.existingTwinId}`);
+          }, 3000);
+          return;
+        }
+        
         throw new Error(result.error || 'Failed to claim twin');
       }
       
@@ -840,9 +852,9 @@ export default function ChatPage() {
           <div className="text-gray-800 mb-8 p-5 bg-amber-50 rounded-lg border border-amber-200">
             We couldn&apos;t find the digital twin you&apos;re looking for.
           </div>
-          <Link href="/" 
+          <Link href="/auth/signup" 
             className="inline-block bg-gradient-to-br from-blue-500 to-indigo-600 text-white px-6 py-3 rounded-lg font-medium hover:shadow-lg transition-all duration-200">
-            Create a Twin
+            Sign Up to Create a Twin
           </Link>
         </div>
       </div>
@@ -859,40 +871,38 @@ export default function ChatPage() {
       }}
     >
       {/* Header section */}
-      <header className="bg-white/95 backdrop-blur-md shadow-sm py-3 md:py-4 px-4 md:px-8 flex items-center z-10 border-b border-gray-100 flex-shrink-0">
+      <header className="bg-white/90 backdrop-blur-sm shadow-sm py-2 md:py-6 px-4 md:px-8 flex items-center z-10 border-b border-gray-100 flex-shrink-0">
         <div className="flex-1 flex items-center">
           {!authUser && (
-            <Link href="/" className="text-blue-600 hover:text-blue-800 transition-colors duration-200 flex items-center mr-4 p-1.5 rounded-full hover:bg-blue-50">
-              <FaArrowLeft size={18} />
+            <Link href="/" className="text-blue-600 flex items-center mr-4">
+              <FaArrowLeft size={20} className="md:text-lg" />
             </Link>
           )}
-          <div className="font-semibold text-lg md:text-xl text-gray-800 tracking-tight flex items-center">
-            <span className="bg-gradient-to-r from-blue-600 to-indigo-600 text-transparent bg-clip-text">{user?.name || 'Twin'}&apos;s Chat</span>
-          </div>
+          <div className="font-semibold text-lg md:text-xl text-gray-800">{user?.name || 'Twin'}&apos;s Chat</div>
         </div>
-        <div className="flex items-center space-x-2 md:space-x-4">
+        <div className="flex items-center space-x-2 md:space-x-3">
           <ProfileButton />
           <button
             onClick={() => setShowInfo(!showInfo)}
-            className="flex items-center space-x-1.5 px-3 py-2 md:px-4 md:py-2 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 text-gray-700 rounded-lg text-sm md:text-base transition-all duration-200 border border-gray-100 shadow-sm"
+            className="flex items-center space-x-1 px-3 py-2 md:px-4 md:py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm md:text-base transition-colors"
             aria-label="Twin information"
           >
-            <FaInfoCircle size={16} className="text-blue-600" />
-            <span className="hidden md:inline font-medium bg-gradient-to-r from-blue-600 to-indigo-600 text-transparent bg-clip-text">Info</span>
+            <FaInfoCircle size={16} className="md:text-lg" />
+            <span className="hidden md:inline">Info</span>
           </button>
         </div>
       </header>
 
       {/* Sign-up banner for users who are not logged in and have an unclaimed twin */}
       {!authUser && user && !user.auth_user_id && (
-        <div className="bg-gradient-to-r from-blue-600/90 to-indigo-600/90 backdrop-blur-sm text-white py-3 px-4 md:px-8 flex items-center justify-between border-b border-blue-800 shadow-md">
+        <div className="bg-gradient-to-r from-blue-600/90 to-indigo-600/90 backdrop-blur-sm text-white py-3 px-4 flex items-center justify-between border-b border-blue-800">
           <div className="flex-1">
-            <p className="text-sm md:text-base font-medium"><FaUserPlus className="inline-block mr-2" /> Save your twin and access it anytime!</p>
+            <p className="text-sm md:text-base"><FaUserPlus className="inline-block mr-2" /> Sign up to save your twin and access it anytime!</p>
           </div>
-          <div className="ml-3">
+          <div className="ml-2">
             <Link 
               href={`/auth/signup?twinId=${user.id}`}
-              className="bg-white/95 text-indigo-600 hover:bg-white px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-200 shadow-sm flex items-center hover:shadow-md"
+              className="bg-white text-blue-600 hover:bg-blue-50 px-4 py-1.5 rounded text-sm font-medium transition-colors shadow-sm flex items-center"
             >
               <FaUserPlus className="mr-1.5" size={14} /> Sign Up
             </Link>
