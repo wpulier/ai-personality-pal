@@ -76,10 +76,10 @@ export default function Home() {
       {/* Header section */}
       <header className="text-center mb-8">
         <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent mb-4">
-          AI Personality Pal
+          Meet Your Twin
         </h1>
         <p className="text-gray-300 text-lg max-w-2xl mx-auto">
-          Create a digital twin powered by AI that reflects your personality, interests, and preferences
+          Your digital twin learns your style, interests, and personality—then chats like you do.
         </p>
       </header>
 
@@ -94,8 +94,8 @@ export default function Home() {
                 <FaUser size={18} />
               </div>
               <div>
-                <h3 className="font-semibold text-blue-400 mb-1">Personal AI Companion</h3>
-                <p className="text-gray-300 hidden md:block">Your AI twin understands your preferences and communicates in your style.</p>
+                <h3 className="font-semibold text-blue-400 mb-1">Knows You Best</h3>
+                <p className="text-gray-300">Learns your tastes, style, and voice to chat authentically.</p>
               </div>
             </div>
             
@@ -104,8 +104,8 @@ export default function Home() {
                 <FaRobot size={18} />
               </div>
               <div>
-                <h3 className="font-semibold text-indigo-400 mb-1">Enhanced With Your Data</h3>
-                <p className="text-gray-300 hidden md:block">Connect your Spotify and Letterboxd to make your twin more authentic.</p>
+                <h3 className="font-semibold text-indigo-400 mb-1">Powered by You</h3>
+                <p className="text-gray-300">Connect Spotify, Letterboxd, and more to keep your twin real and relevant.</p>
               </div>
             </div>
             
@@ -114,8 +114,8 @@ export default function Home() {
                 <FaPlus size={18} />
               </div>
               <div>
-                <h3 className="font-semibold text-purple-400 mb-1">Customizable & Evolving</h3>
-                <p className="text-gray-300 hidden md:block">Edit your twin's bio and preferences anytime to keep it up to date.</p>
+                <h3 className="font-semibold text-purple-400 mb-1">Always in Sync</h3>
+                <p className="text-gray-300">Update your twin's bio and preferences anytime—it grows alongside you.</p>
               </div>
             </div>
           </div>
@@ -128,20 +128,20 @@ export default function Home() {
           
           {/* Save Your Twins Section as footer */}
           {!user && (
-            <div className="mt-6 pt-4 border-t border-gray-700">
-              <div className="text-center text-sm">
-                <p className="text-gray-400 mb-3">
+            <div className="mt-4 md:mt-6 pt-3 md:pt-4 border-t border-gray-700">
+              <div className="text-center text-xs md:text-sm">
+                <p className="text-gray-400 mb-2 md:mb-3">
                   Create an account to save your twins and access them anytime
                 </p>
-                <div className="flex space-x-3">
-                  <Link href="/auth/signup" className="flex-1 py-2 px-3 rounded text-sm text-white bg-blue-600 hover:bg-blue-700 transition-colors text-center">
+                <div className="flex space-x-2 md:space-x-3 px-[5%] md:px-0">
+                  <Link href="/auth/signup" className="flex-1 py-1.5 md:py-2 px-2 md:px-3 rounded text-xs md:text-sm text-white bg-blue-600 hover:bg-blue-700 transition-colors text-center">
                     Create Account
                   </Link>
-                  <Link href="/auth/login" className="flex-1 py-2 px-3 rounded text-sm bg-gray-700 hover:bg-gray-600 text-white transition-colors text-center">
+                  <Link href="/auth/login" className="flex-1 py-1.5 md:py-2 px-2 md:px-3 rounded text-xs md:text-sm bg-gray-700 hover:bg-gray-600 text-white transition-colors text-center">
                     Sign In
                   </Link>
                 </div>
-                <p className="mt-3 text-xs text-gray-500">
+                <p className="mt-2 md:mt-3 text-xs text-gray-500">
                   Don't want to sign up? You can still <Link href="/create" className="text-blue-400 hover:text-blue-300">create a twin</Link> without an account.
                 </p>
               </div>
