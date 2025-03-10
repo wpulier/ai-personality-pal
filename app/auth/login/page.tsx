@@ -1,121 +1,90 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { useAuth } from '@/lib/supabase/auth-context';
-import { createClient } from '@supabase/supabase-js';
+import { getAuthSession, signInWithEmail } from '@/lib/supabase/client';
 
-// Create a client component that uses useSearchParams
-function LoginForm() {
+export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [isAssociatingTwin, setIsAssociatingTwin] = useState(false);
   const router = useRouter();
-  const { signIn, user } = useAuth();
   const searchParams = useSearchParams();
   const twinId = searchParams.get('twinId');
 
-  // Store twinId in localStorage when it's present in URL
+  // Check for current session on mount
   useEffect(() => {
-    if (twinId) {
-      localStorage.setItem('pendingTwinId', twinId);
-      console.log(`Stored pending twin ID for login: ${twinId}`);
-    }
-    
-    // Initialize email from localStorage if available
-    const savedEmail = localStorage.getItem('pendingTwinEmail');
-    if (savedEmail) {
-      setEmail(savedEmail);
-    }
-  }, [twinId]);
-
-  // Associate twin with user once logged in
-  useEffect(() => {
-    const associateTwinWithUser = async () => {
-      // Only proceed if user is logged in and we have a pending twin
-      if (user && !isAssociatingTwin) {
-        const pendingTwinId = localStorage.getItem('pendingTwinId');
-        if (!pendingTwinId) return;
+    const checkSession = async () => {
+      try {
+        // Get session
+        const { user } = await getAuthSession();
         
-        setIsAssociatingTwin(true);
-        console.log(`Attempting to associate twin ${pendingTwinId} with user ${user.id}`);
-
-        try {
-          // Create a supabase client
-          const supabase = createClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL!, 
-            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-          );
-
-          // Update the twin to be associated with the user
-          const { error } = await supabase
-            .from('twins')
-            .update({ auth_user_id: user.id })
-            .eq('id', pendingTwinId);
-
-          if (error) {
-            console.error('Error associating twin with user:', error);
-            throw error;
+        // If user is already logged in
+        if (user) {
+          console.log('User already logged in:', user.id);
+          
+          // If twin ID is provided, redirect to that twin's chat
+          if (twinId) {
+            router.push(`/chat/${twinId}`);
+            return;
           }
-
-          console.log(`Successfully associated twin ${pendingTwinId} with user ${user.id}`);
           
-          // Clear the pending twin ID from localStorage
-          localStorage.removeItem('pendingTwinId');
-          localStorage.removeItem('pendingTwinEmail');
-          
-          // Redirect to the twin's chat page
-          router.push(`/chat/${pendingTwinId}`);
-        } catch (error) {
-          console.error('Failed to associate twin with user:', error);
-          setError('Failed to link your twin with your account. You can try again later.');
-          setIsAssociatingTwin(false);
+          // Otherwise, check if user has any twins
+          const response = await fetch(`/api/twins?userId=${user.id}`);
+          if (response.ok) {
+            const twins = await response.json();
+            if (twins && twins.length > 0) {
+              router.push(`/chat/${twins[0].id}`);
+            } else {
+              router.push('/create');
+            }
+          }
         }
+      } catch (error) {
+        console.error('Error checking session:', error);
       }
     };
+    
+    checkSession();
+  }, [router, twinId]);
 
-    associateTwinWithUser();
-  }, [user, router, isAssociatingTwin]);
-
+  // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setIsLoading(true);
 
     try {
-      await signIn(email, password);
-      // Check for pending twin first
-      const pendingTwinId = localStorage.getItem('pendingTwinId');
-      if (pendingTwinId) {
-        // The useEffect will handle redirecting to the twin's chat
-      } else {
-        // No pending twin - fetch twins and redirect to the first one or create page
-        try {
-          const response = await fetch('/api/twins');
-          if (response.ok) {
-            const twins = await response.json();
-            if (twins && twins.length > 0) {
-              // User has at least one twin, redirect to that twin's chat
-              router.push(`/chat/${twins[0].id}`);
-            } else {
-              // User has no twins, redirect to create page
-              router.push('/create');
-            }
-          } else {
-            // API error, just go to home as fallback
-            router.push('/');
-          }
-        } catch (error) {
-          console.error('Error fetching twins after login:', error);
-          router.push('/');
+      // Sign in with Supabase
+      const { data, error } = await signInWithEmail(email, password);
+      
+      if (error) {
+        setError(error.message);
+        return;
+      }
+      
+      // If twin ID is provided, redirect to that twin's chat
+      if (twinId) {
+        router.push(`/chat/${twinId}`);
+        return;
+      }
+      
+      // Otherwise, check if user has any twins
+      const response = await fetch(`/api/twins?userId=${data.user.id}`);
+      if (response.ok) {
+        const twins = await response.json();
+        if (twins && twins.length > 0) {
+          router.push(`/chat/${twins[0].id}`);
+        } else {
+          router.push('/create');
         }
       }
     } catch (error) {
       console.error('Login error:', error);
-      setError(error instanceof Error ? error.message : 'Failed to sign in');
+      setError('An unexpected error occurred');
+    } finally {
       setIsLoading(false);
     }
   };
@@ -137,21 +106,8 @@ function LoginForm() {
                   Connect with Your Digital Twin
                 </p>
                 <p className="text-sm text-gray-300">
-                  To keep your digital twin and access it in the future, you need an account.
+                  Sign in to connect with your digital twin.
                 </p>
-                <div className="mt-4 p-3 bg-gray-800 rounded-lg text-sm">
-                  <p className="font-medium text-gray-300 mb-1">Options:</p>
-                  <ul className="text-left list-disc pl-5 space-y-1 text-gray-400">
-                    <li>
-                      <span className="font-medium">Sign in below</span> if you already have an account
-                    </li>
-                    <li>
-                      <Link href={`/auth/signup?twinId=${twinId}`} className="font-medium text-blue-400 hover:text-blue-300">
-                        Create a new account
-                      </Link> to save this new twin
-                    </li>
-                  </ul>
-                </div>
               </div>
             )}
           </div>
@@ -159,11 +115,6 @@ function LoginForm() {
             {error && (
               <div className="mb-4 p-3 bg-red-900/30 text-red-400 rounded-md text-sm border border-red-800/50">
                 {error}
-              </div>
-            )}
-            {isAssociatingTwin && (
-              <div className="mb-4 p-3 bg-blue-900/30 text-blue-400 rounded-md text-sm border border-blue-800/50">
-                Connecting your twin with your account...
               </div>
             )}
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -197,10 +148,10 @@ function LoginForm() {
               </div>
               <button
                 type="submit"
-                disabled={isLoading || isAssociatingTwin}
+                disabled={isLoading}
                 className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white py-2 px-4 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isLoading ? 'Signing in...' : isAssociatingTwin ? 'Connecting twin...' : 'Sign In'}
+                {isLoading ? 'Signing in...' : 'Sign In'}
               </button>
             </form>
             <div className="mt-4 text-center text-sm">
@@ -215,36 +166,5 @@ function LoginForm() {
         </div>
       </div>
     </div>
-  );
-}
-
-// Loading fallback component
-function LoginLoading() {
-  return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-black">
-      <div className="w-full max-w-md">
-        <div className="bg-gray-900 rounded-xl shadow-2xl border border-gray-800 overflow-hidden p-6">
-          <div className="flex justify-center">
-            <div className="animate-pulse flex space-x-4">
-              <div className="flex-1 space-y-6 py-1">
-                <div className="h-4 bg-gray-700 rounded w-3/4 mx-auto"></div>
-                <div className="space-y-3">
-                  <div className="h-4 bg-gray-700 rounded"></div>
-                  <div className="h-4 bg-gray-700 rounded"></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export default function LoginPage() {
-  return (
-    <Suspense fallback={<LoginLoading />}>
-      <LoginForm />
-    </Suspense>
   );
 } 

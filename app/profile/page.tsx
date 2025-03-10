@@ -3,9 +3,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useAuth } from '@/lib/supabase/auth-context';
-import { supabase } from '@/lib/supabase/client';
-import { handleAuthError, resetAuthState } from '@/lib/supabase/client';
+import { createClient } from '@supabase/supabase-js';
+import { getAuthSession, signOut } from '@/lib/supabase/client';
 import { deleteTwin } from '@/lib/services/twin-service'; 
 
 interface Twin {
@@ -14,157 +13,156 @@ interface Twin {
   createdAt: string;
 }
 
+// Create a Supabase client for direct database access
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+);
+
 export default function ProfilePage() {
-  const { user, isLoading, signOut, refreshSession } = useAuth();
+  const [user, setUser] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [twins, setTwins] = useState<Twin[]>([]);
   const [isLoadingTwins, setIsLoadingTwins] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [twinToDelete, setTwinToDelete] = useState<Twin | null>(null);
   const router = useRouter();
   
   // State for deletion confirmation modal
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [twinToDelete, setTwinToDelete] = useState<Twin | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   
-  // Function to fetch twins data - wrapped in useCallback to prevent infinite loops
-  const fetchTwins = useCallback(async () => {
+  // Function to refresh auth session
+  const refreshSession = async (): Promise<boolean> => {
+    try {
+      console.log('Attempting to refresh session...');
+      const { user: refreshedUser } = await getAuthSession();
+      
+      if (refreshedUser) {
+        console.log('Session refreshed successfully');
+        setUser(refreshedUser);
+        return true;
+      } else {
+        console.log('No session after refresh attempt');
+        return false;
+      }
+    } catch (error) {
+      console.error('Exception during session refresh:', error);
+      return false;
+    }
+  };
+
+  // Function to fetch twins
+  const fetchTwins = async () => {
     if (!user) return;
     
     setIsLoadingTwins(true);
-    setError(null); // Clear any previous errors
+    setError(null);
     
     try {
-      if (!user.id) {
-        console.error('User ID is missing');
-        setError('User ID is missing. Please try logging in again.');
-        setIsLoadingTwins(false);
-        return;
-      }
-      
-      // Check if Supabase is properly configured
-      if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-        console.error('Supabase configuration is missing');
-        setError('Database configuration is missing. Please contact support.');
-        setIsLoadingTwins(false);
-        return;
-      }
-      
-      console.log('Fetching twins for user:', user.id);
-      
-      // Query the twins table for the authenticated user
-      console.log('Fetching twins for user ID:', user.id);
+      // Fetch twins directly from Supabase
       const { data, error } = await supabase
         .from('twins')
-        .select('id, name, created_at')
+        .select('*')
         .eq('auth_user_id', user.id);
-        
+      
       if (error) {
         console.error('Supabase query error:', error.message, error.details || 'No details available');
         
         // Check if this is an auth error
-        const authErrorHandled = await handleAuthError(error);
-        if (authErrorHandled) {
+        if (error.message.includes('JWT') || error.message.includes('token')) {
           setError('Your session has expired. Redirecting to login...');
           setTimeout(() => router.push('/auth/login'), 2000);
           return;
         }
         
-        // Set an empty array instead of throwing
-        setTwins([]);
-        setError('Failed to load your twins. Please try again.');
+        setError(`Failed to load twins: ${error.message}`);
+        setIsLoadingTwins(false);
         return;
       }
       
-      if (!data || data.length === 0) {
-        console.log('No twins found for user ID:', user.id);
+      if (data) {
+        console.log(`Found ${data.length} twins for user ${user.id}`);
+        setTwins(data);
+      } else {
+        console.log(`No twins found for user ${user.id}`);
         setTwins([]);
-        return;
       }
-      
-      console.log('Found twins:', data.length);
-      
-      // Map the database fields to our Twin interface
-      const formattedTwins: Twin[] = data.map(item => ({
-        id: item.id,
-        name: item.name,
-        createdAt: item.created_at
-      }));
-      
-      setTwins(formattedTwins);
     } catch (error) {
-      console.error('Error fetching twins:', error instanceof Error ? error.message : JSON.stringify(error));
-      // Set an empty array instead of fake placeholder data
-      setTwins([]);
-      setError('Failed to load your twins. Please try again.');
+      console.error('Error fetching twins:', error);
+      setError('Failed to load twins. Please try again.');
     } finally {
       setIsLoadingTwins(false);
     }
-  }, [user, router]);
+  };
 
-  // Redirect if not logged in or handle auth errors
+  // Check for authentication
   useEffect(() => {
-    const handleAuthState = async () => {
-      if (!isLoading) {
-        if (!user) {
+    const checkAuth = async () => {
+      try {
+        const { user: authUser } = await getAuthSession();
+        if (!authUser) {
+          // Redirect to login if not authenticated
+          console.log('User not authenticated, redirecting to login');
           router.push('/auth/login');
+          return;
         }
+        
+        setUser(authUser);
+        setIsLoading(false);
+      } catch (error) {
+        console.error('Error checking auth:', error);
+        router.push('/auth/login');
       }
     };
     
-    handleAuthState();
-  }, [user, isLoading, router]);
-  
-  // Handle authentication errors and refresh tokens
+    checkAuth();
+  }, [router]);
+
+  // Fetch twins when user is loaded
   useEffect(() => {
-    if (error) {
-      const attemptRefresh = async () => {
-        try {
-          // Check for refresh token errors
-          if (error && (
-              error.toLowerCase().includes('refresh token') ||
-              error.toLowerCase().includes('invalid token') ||
-              error.toLowerCase().includes('jwt')
-            )) {
-            console.log('Detected auth token error, attempting to reset auth state');
-            
-            // First try to use the context's refresh method
-            if (typeof refreshSession === 'function') {
-              const refreshed = await refreshSession();
-              
-              if (refreshed) {
-                console.log('Session refreshed successfully via context, clearing error');
-                setError(null);
-                // Re-fetch twins after successful refresh
-                fetchTwins();
-                return;
-              }
-            }
-            
-            // If context refresh failed or not available, use our helper
-            const reset = await resetAuthState();
-            if (reset) {
-              console.log('Auth state reset successfully, redirecting to login');
-              router.push('/auth/login?error=Your+session+has+expired');
-            } else {
-              console.error('Failed to reset auth state');
-              router.push('/auth/login?error=Authentication+error');
-            }
-          }
-        } catch (refreshError) {
-          console.error('Error during refresh attempt:', refreshError);
-          router.push('/auth/login');
-        }
-      };
-      
-      attemptRefresh();
+    if (user) {
+      fetchTwins();
     }
-  }, [error, refreshSession, router, fetchTwins]);
+  }, [user]);
 
-  // Fetch user's twins
-  useEffect(() => {
-    fetchTwins();
-  }, [user, fetchTwins]);
+  // Handle auth state issues
+  const handleAuthState = async () => {
+    if (error && (
+      error.includes('JWT') || 
+      error.includes('token') || 
+      error.includes('session')
+    )) {
+      console.log('Detected auth error, attempting to refresh session');
+      
+      try {
+        // Try to refresh the session
+        const refreshed = await refreshSession();
+        if (refreshed) {
+          console.log('Session refreshed successfully');
+          setError(null);
+          // Re-fetch twins after successful refresh
+          fetchTwins();
+          return;
+        }
+      } catch (refreshError) {
+        console.error('Error during refresh:', refreshError);
+      }
+      
+      // If refresh failed, sign out and redirect
+      try {
+        await signOut();
+        console.log('Auth state reset successfully, redirecting to login');
+        router.push('/auth/login?error=Your+session+has+expired');
+      } catch (signOutError) {
+        console.error('Error signing out:', signOutError);
+        // Force redirect anyway
+        router.push('/auth/login');
+      }
+    }
+  };
 
+  // Handle sign out
   const handleSignOut = async () => {
     try {
       await signOut();

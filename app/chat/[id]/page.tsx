@@ -6,13 +6,19 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { FaArrowLeft, FaInfoCircle, FaPaperPlane, FaFilm, FaStar, FaMusic, FaSpotify, FaUser, FaUserPlus, FaLink, FaTimes, FaTrash } from 'react-icons/fa';
 import SpotifyConnectButton from '@/components/spotify-connect-button';
-import { useAuth } from '@/lib/supabase/auth-context';
 import { Button } from '@/components/ui/button';
 import { DescriptionEditModal } from '@/components/description-edit-modal';
 import { LetterboxdEditModal } from '@/components/letterboxd-edit-modal';
 import { SpotifyConnectModal } from '@/components/spotify-connect-modal';
 import { TwinPersonalitySection } from '@/components/twin-personality-section';
 import { TwinMediaSection } from '@/components/twin-media-section';
+import { createClient } from '@supabase/supabase-js';
+
+// Create a Supabase client
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+);
 
 interface Message {
   id: number;
@@ -60,35 +66,61 @@ interface User {
 }
 
 function ProfileButton() {
-  // Use next/navigation to access the router
-  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
-  // Get authentication context
-  const { user, signOut } = useAuth();
-  
-  // Function to navigate to the profile page
+  const [authUser, setAuthUser] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
+
+  // Check for authentication on component mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        setAuthUser(session?.user || null);
+      } catch (error) {
+        console.error('Error checking auth:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    checkAuth();
+    
+    // Set up listener for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setAuthUser(session?.user || null);
+      }
+    );
+    
+    // Cleanup on unmount
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
   const goToProfile = () => {
+    setIsOpen(false);
     router.push('/profile');
-    setIsOpen(false);
   };
-  
-  // Function to navigate to login page
+
   const goToLogin = () => {
-    router.push('/auth/login');
     setIsOpen(false);
+    router.push('/auth/login');
   };
-  
-  // Function to handle sign out
+
   const handleSignOut = async () => {
     try {
-      await signOut();
+      await supabase.auth.signOut();
+      setAuthUser(null);
       router.push('/');
     } catch (error) {
       console.error('Error signing out:', error);
     }
     setIsOpen(false);
   };
-  
+
   // Close the dropdown when clicking outside
   useEffect(() => {
     const closeDropdown = () => setIsOpen(false);
@@ -123,11 +155,11 @@ function ProfileButton() {
           onClick={handleDropdownClick}
         >
           <div className="py-1">
-            {user ? (
+            {authUser ? (
               <>
                 <div className="px-4 py-2 text-xs text-gray-500 border-b">
                   Signed in as<br />
-                  <span className="font-semibold text-gray-700 truncate block">{user.email}</span>
+                  <span className="font-semibold text-gray-700 truncate block">{authUser.email}</span>
                 </div>
                 <button
                   onClick={goToProfile}
@@ -181,7 +213,8 @@ export default function ChatPage() {
   const [showSpotify, setShowSpotify] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const { user: authUser } = useAuth();
+  const [authUser, setAuthUser] = useState<any>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [isAssociatingTwin, setIsAssociatingTwin] = useState(false);
   const [hasClaimedTwin, setHasClaimedTwin] = useState(false);
   const [showEditBio, setShowEditBio] = useState(false);
@@ -189,6 +222,34 @@ export default function ChatPage() {
   const [showSpotifyConnect, setShowSpotifyConnect] = useState(false);
   const [showBioModal, setShowBioModal] = useState(false);
   const [isSending, setIsSending] = useState(false);
+
+  // Check for authentication
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        setAuthUser(session?.user || null);
+      } catch (error) {
+        console.error('Error checking auth:', error);
+      } finally {
+        setIsAuthLoading(false);
+      }
+    };
+    
+    checkAuth();
+    
+    // Set up listener for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setAuthUser(session?.user || null);
+      }
+    );
+    
+    // Cleanup on unmount
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
 
   // Function to claim the current twin for the logged-in user
   const claimCurrentTwin = useCallback(async () => {

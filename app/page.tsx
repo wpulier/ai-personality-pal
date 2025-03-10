@@ -3,53 +3,95 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useAuth } from "@/lib/supabase/auth-context";
-import { FaPlus, FaUser, FaRobot, FaArrowRight } from "react-icons/fa";
+import { FaUser, FaRobot, FaArrowRight } from "react-icons/fa";
+import { getAuthSession, signOut } from '@/lib/supabase/client';
 
 export default function Home() {
+  const [user, setUser] = useState<any>(null);
   const [twins, setTwins] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const { user } = useAuth();
   const router = useRouter();
 
-  // Fetch twins for this user if logged in
+  // Check authentication status on component mount
   useEffect(() => {
-    const fetchTwins = async () => {
-      if (!user) {
-        setLoading(false);
-        return;
-      }
-      
+    const checkAuth = async () => {
       try {
         setLoading(true);
-        const response = await fetch('/api/twins');
-        if (response.ok) {
-          const data = await response.json();
-          setTwins(data);
+        
+        // Check for current session
+        const { user: authUser } = await getAuthSession();
+        
+        if (authUser) {
+          setUser(authUser);
           
-          // If user has at least one twin, redirect to their chat page
-          if (data.length > 0) {
-            router.push(`/chat/${data[0].id}`);
-          } else {
-            // User is logged in but has no twins, redirect to create page
-            console.log('User has no twins, redirecting to create page');
-            router.push('/create');
+          // Fetch user's twins
+          const response = await fetch(`/api/twins?userId=${authUser.id}`);
+          if (response.ok) {
+            const data = await response.json();
+            setTwins(data);
+            
+            // If user has at least one twin, redirect to their chat page
+            if (data.length > 0) {
+              router.push(`/chat/${data[0].id}`);
+              return;
+            }
           }
-        } else {
-          console.error('Failed to fetch twins');
-          setLoading(false);
         }
       } catch (error) {
-        console.error('Error fetching twins:', error);
+        console.error('Auth error:', error);
+      } finally {
         setLoading(false);
       }
     };
+    
+    checkAuth();
+  }, [router]);
 
-    fetchTwins();
-  }, [user, router]);
+  // Simple login controls
+  const LoginControls = () => {
+    return (
+      <div className="fixed top-0 right-0 bg-black/80 text-white p-2 m-2 rounded text-xs">
+        <div className="flex items-center space-x-2">
+          {user ? (
+            <>
+              <span>👤</span>
+              <button 
+                onClick={async () => {
+                  await signOut();
+                  setUser(null);
+                  setTwins([]);
+                  router.push('/');
+                }}
+                className="bg-red-600 hover:bg-red-700 px-2 py-0.5 rounded"
+              >
+                Logout
+              </button>
+              {twins.length > 0 && (
+                <Link 
+                  href={`/chat/${twins[0].id}`} 
+                  className="bg-green-600 hover:bg-green-700 px-2 py-0.5 rounded"
+                >
+                  Chat
+                </Link>
+              )}
+            </>
+          ) : (
+            <>
+              <span>👻</span>
+              <Link 
+                href="/auth/login" 
+                className="bg-blue-600 hover:bg-blue-700 px-2 py-0.5 rounded"
+              >
+                Login
+              </Link>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  };
 
-  // If user is logged in and we're loading, show loading state
-  if (user && loading) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-black">
         <div className="text-center">
@@ -73,6 +115,8 @@ export default function Home() {
         backgroundSize: '400px',
       }}
     >
+      <LoginControls />
+
       {/* Header section */}
       <header className="text-center mb-8">
         <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent mb-4">
@@ -87,63 +131,41 @@ export default function Home() {
       <div className="w-full max-w-lg bg-gray-900 rounded-xl shadow-2xl border border-gray-800 overflow-hidden">
         {/* Why Create a Twin Section */}
         <div className="p-6 md:p-8">
-          
-          <div className="space-y-6">
-            <div className="flex gap-4">
-              <div className="w-10 h-10 rounded-full bg-blue-900 flex items-center justify-center text-blue-400 flex-shrink-0">
-                <FaUser size={18} />
+          <h2 className="text-xl font-bold text-white mb-4">Why Create a Twin?</h2>
+          <div className="space-y-4">
+            {/* Feature item */}
+            <div className="flex items-start">
+              <div className="flex-shrink-0 bg-indigo-800 rounded-lg p-2 mr-4">
+                <FaUser className="text-white" size={20} />
               </div>
               <div>
-                <h3 className="font-semibold text-blue-400 mb-1">Knows You Best</h3>
-                <p className="text-gray-300">Learns your tastes, style, and voice to chat authentically.</p>
+                <h3 className="text-lg font-medium text-white">Self-expression</h3>
+                <p className="text-gray-400">Share your unique perspective through an AI that captures your style.</p>
               </div>
             </div>
             
-            <div className="flex gap-4">
-              <div className="w-10 h-10 rounded-full bg-indigo-900 flex items-center justify-center text-indigo-400 flex-shrink-0">
-                <FaRobot size={18} />
+            {/* Feature item */}
+            <div className="flex items-start">
+              <div className="flex-shrink-0 bg-indigo-800 rounded-lg p-2 mr-4">
+                <FaRobot className="text-white" size={20} />
               </div>
               <div>
-                <h3 className="font-semibold text-indigo-400 mb-1">Powered by You</h3>
-                <p className="text-gray-300">Connect Spotify, Letterboxd, and more to keep your twin real and relevant.</p>
-              </div>
-            </div>
-            
-            <div className="flex gap-4">
-              <div className="w-10 h-10 rounded-full bg-purple-900 flex items-center justify-center text-purple-400 flex-shrink-0">
-                <FaPlus size={18} />
-              </div>
-              <div>
-                <h3 className="font-semibold text-purple-400 mb-1">Always in Sync</h3>
-                <p className="text-gray-300">Update your twin's bio and preferences anytime—it grows alongside you.</p>
+                <h3 className="text-lg font-medium text-white">Creative AI</h3>
+                <p className="text-gray-400">An AI that understands your taste in movies, music, and more.</p>
               </div>
             </div>
           </div>
           
+          {/* CTA Button */}
           <div className="mt-8">
-            <Link href="/auth/signup" className="inline-flex items-center justify-center w-full py-3 px-6 rounded-lg shadow-md text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 font-medium transition-all">
-              Create Your Twin <FaArrowRight className="ml-2" />
+            <Link
+              href={user ? "/create" : "/auth/signup"}
+              className="w-full inline-flex justify-center items-center py-3 px-5 text-base font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition duration-300 ease-in-out"
+            >
+              {user ? "Create Your Twin" : "Sign Up to Create"}
+              <FaArrowRight className="ml-2" />
             </Link>
           </div>
-          
-          {/* Save Your Twins Section as footer */}
-          {!user && (
-            <div className="mt-4 md:mt-6 pt-3 md:pt-4 border-t border-gray-700">
-              <div className="text-center text-xs md:text-sm">
-                <p className="text-gray-400 mb-2 md:mb-3">
-                  Create an account to save your twin and access it anytime
-                </p>
-                <div className="flex space-x-2 md:space-x-3 px-[5%] md:px-0">
-                  <Link href="/auth/signup" className="flex-1 py-1.5 md:py-2 px-2 md:px-3 rounded text-xs md:text-sm text-white bg-blue-600 hover:bg-blue-700 transition-colors text-center">
-                    Create Account
-                  </Link>
-                  <Link href="/auth/login" className="flex-1 py-1.5 md:py-2 px-2 md:px-3 rounded text-xs md:text-sm bg-gray-700 hover:bg-gray-600 text-white transition-colors text-center">
-                    Sign In
-                  </Link>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </main>

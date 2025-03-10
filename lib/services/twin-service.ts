@@ -194,6 +194,7 @@ export async function createTwin(twinData: {
         
         if (fetchError) {
           console.error('Error fetching existing twin:', fetchError);
+          throw new Error('You already have a twin, but we could not retrieve it. Please try again.');
         } else {
           console.log('Returning existing twin instead of creating a new one');
           return normalizeTwinData(existingTwin);

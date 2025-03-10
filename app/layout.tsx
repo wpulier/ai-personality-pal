@@ -1,7 +1,6 @@
-import type { Metadata } from "next";
+import './globals.css';
+import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
-import { AuthProvider } from "@/lib/supabase/auth-context";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -14,21 +13,19 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AI Personality Pal",
-  description: "Create your digital twin based on your preferences",
+  title: 'AI Personality Pal',
+  description: 'Create a digital twin with your personality',
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        <AuthProvider>{children}</AuthProvider>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        {children}
       </body>
     </html>
   );

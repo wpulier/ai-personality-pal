@@ -35,7 +35,6 @@ export function TwinCreationLoading() {
   return (
     <div className="flex flex-col items-center justify-center py-10 bg-gradient-to-br from-indigo-50 via-blue-50 to-purple-50 rounded-xl shadow-sm border border-indigo-100 px-6">
       <div className="text-center p-8 bg-white/90 backdrop-blur-sm rounded-xl shadow-lg max-w-md w-full border border-indigo-100">
-        <div className="mb-6 text-indigo-600 font-bold text-xl">Creating Your Digital Twin</div>
         
         <div className="flex justify-center space-x-3 mb-8">
           <div className="w-3 h-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full animate-pulse" style={{ animationDuration: '0.9s' }}></div>

@@ -4,8 +4,8 @@ import { AuthError } from '@supabase/supabase-js';
 // Note: These environment variables are exposed to the browser
 // They are safe to expose as they only allow public operations
 // with row-level security controlling access
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
 // Check if environment variables are set
 if (!supabaseUrl || !supabaseAnonKey) {
@@ -15,59 +15,67 @@ if (!supabaseUrl || !supabaseAnonKey) {
   });
 }
 
-// Create a single supabase client for browser usage
-export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
+// Create a single Supabase client for the browser
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    autoRefreshToken: true,
     persistSession: true,
-    storageKey: 'supabase-auth',
+    autoRefreshToken: true,
     detectSessionInUrl: true,
-    flowType: 'pkce',
   }
 });
 
 /**
- * Safely resets the auth state when experiencing token-related errors
- * Can be called from anywhere in the app when an auth error is detected
+ * Helper function to check if user is authenticated
+ * @returns The current session and user, or null if not authenticated
  */
-export async function resetAuthState() {
-  console.log('Resetting auth state due to token issues');
-  try {
-    // Clear all auth state from local storage
-    await supabase.auth.signOut({ scope: 'local' });
-    
-    // Clear any cookies (if using cookie-based auth)
-    document.cookie.split(';').forEach(cookie => {
-      const [name] = cookie.trim().split('=');
-      if (name.includes('supabase') || name.includes('auth')) {
-        document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
-      }
-    });
-    
-    console.log('Auth state reset successfully');
-    return true;
-  } catch (error) {
-    console.error('Failed to reset auth state:', error);
-    return false;
-  }
+export async function getAuthSession() {
+  const { data: { session } } = await supabase.auth.getSession();
+  return {
+    session,
+    user: session?.user || null
+  };
 }
 
 /**
- * Handles auth errors, especially refresh token errors
- * @param error The error to handle
- * @returns true if the error was handled, false otherwise
+ * Helper function to sign in with email/password
+ * @param email User's email
+ * @param password User's password
+ * @returns The session data or error
  */
-export async function handleAuthError(error: unknown): Promise<boolean> {
-  if (error instanceof AuthError) {
-    // Check for refresh token errors
-    if (
-      error.message.includes('Refresh Token Not Found') ||
-      error.message.includes('Invalid Refresh Token') ||
-      error.message.includes('JWT expired')
-    ) {
-      console.warn('Auth token error detected, resetting auth state');
-      return await resetAuthState();
-    }
-  }
-  return false;
-} 
+export async function signInWithEmail(email: string, password: string) {
+  return await supabase.auth.signInWithPassword({ email, password });
+}
+
+/**
+ * Helper function to sign up with email/password
+ * @param email User's email
+ * @param password User's password
+ * @param metadata Optional metadata to store with the user
+ * @returns The session data or error
+ */
+export async function signUpWithEmail(email: string, password: string, metadata?: any) {
+  return await supabase.auth.signUp({
+    email,
+    password,
+    options: { data: metadata }
+  });
+}
+
+/**
+ * Helper function to sign out
+ * @returns Promise<void>
+ */
+export async function signOut() {
+  return await supabase.auth.signOut();
+}
+
+/**
+ * Helper function to set up an auth state change listener
+ * @param callback Function to call when auth state changes
+ * @returns Subscription object with unsubscribe method
+ */
+export function onAuthStateChange(callback: (event: string, session: any) => void) {
+  return supabase.auth.onAuthStateChange(callback);
+}
+
+export default supabase; 

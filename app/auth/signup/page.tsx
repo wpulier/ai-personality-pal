@@ -1,35 +1,11 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { useAuth } from '@/lib/supabase/auth-context';
+import { getAuthSession, signUpWithEmail } from '@/lib/supabase/client';
 
-// Loading fallback for suspense
-function SignUpLoading() {
-  return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-black">
-      <div className="w-full max-w-md">
-        <div className="bg-gray-900 rounded-xl shadow-2xl border border-gray-800 overflow-hidden p-6">
-          <div className="flex justify-center">
-            <div className="animate-pulse flex space-x-4">
-              <div className="flex-1 space-y-6 py-1">
-                <div className="h-4 bg-gray-700 rounded w-3/4 mx-auto"></div>
-                <div className="space-y-3">
-                  <div className="h-4 bg-gray-700 rounded"></div>
-                  <div className="h-4 bg-gray-700 rounded"></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Client component using useSearchParams
-function SignUpForm() {
+export default function SignUpPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -37,17 +13,36 @@ function SignUpForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const router = useRouter();
-  const { signUp } = useAuth();
   const searchParams = useSearchParams();
   const twinId = searchParams.get('twinId');
 
-  // Store twinId in localStorage when it's present in URL
+  // Check if user is already logged in
   useEffect(() => {
-    if (twinId) {
-      localStorage.setItem('pendingTwinId', twinId);
-      console.log(`Stored pending twin ID: ${twinId}`);
-    }
-  }, [twinId]);
+    const checkSession = async () => {
+      const { user } = await getAuthSession();
+      if (user) {
+        console.log('User already logged in:', user.id);
+        
+        // If this is about associating a twin, go to login
+        if (twinId) {
+          router.push(`/auth/login?twinId=${twinId}`);
+        } else {
+          // Check if user has twins
+          const response = await fetch(`/api/twins?userId=${user.id}`);
+          if (response.ok) {
+            const twins = await response.json();
+            if (twins && twins.length > 0) {
+              router.push(`/chat/${twins[0].id}`);
+            } else {
+              router.push('/create');
+            }
+          }
+        }
+      }
+    };
+    
+    checkSession();
+  }, [router, twinId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,30 +64,28 @@ function SignUpForm() {
     setIsLoading(true);
 
     try {
-      // Store email in localStorage to associate twin after verification
-      if (twinId) {
-        localStorage.setItem('pendingTwinEmail', email);
+      // Sign up with Supabase
+      const { data, error } = await signUpWithEmail(
+        email, 
+        password, 
+        twinId ? { pendingTwinId: twinId } : undefined
+      );
+      
+      if (error) {
+        setError(error.message);
+        return;
       }
       
-      // Sign up the user
-      await signUp(email, password);
-      
-      // Get the pendingTwinId from localStorage
-      const pendingTwinId = localStorage.getItem('pendingTwinId');
-      
-      // Show a brief success message
+      // Show success message
       setSuccessMessage('Sign up successful! Please check your email for verification.');
       
-      // Immediately redirect to login
-      if (pendingTwinId) {
-        // If we have a pending twin, include it in the redirect
-        router.push(`/auth/login?twinId=${pendingTwinId}`);
-      } else {
-        router.push('/auth/login');
-      }
+      // Redirect to login
+      setTimeout(() => {
+        router.push(twinId ? `/auth/login?twinId=${twinId}` : '/auth/login');
+      }, 2000);
     } catch (error) {
       console.error('Sign up error:', error);
-      setError(error instanceof Error ? error.message : 'Failed to sign up');
+      setError('An unexpected error occurred');
     } finally {
       setIsLoading(false);
     }
@@ -115,21 +108,8 @@ function SignUpForm() {
                   Save Your Digital Twin
                 </p>
                 <p className="text-sm text-gray-300">
-                  Creating an account will save your twin and let you access it anytime in the future.
+                  Create an account to save this twin.
                 </p>
-                <div className="mt-4 p-3 bg-gray-800 rounded-lg text-sm">
-                  <p className="font-medium text-gray-300 mb-1">Options:</p>
-                  <ul className="text-left list-disc pl-5 space-y-1 text-gray-400">
-                    <li>
-                      <span className="font-medium">Create a new account below</span> to save this twin
-                    </li>
-                    <li>
-                      <Link href={`/auth/login?twinId=${twinId}`} className="font-medium text-blue-400 hover:text-blue-300">
-                        Sign in instead
-                      </Link> if you already have an existing account
-                    </li>
-                  </ul>
-                </div>
               </div>
             )}
           </div>
@@ -207,14 +187,5 @@ function SignUpForm() {
         </div>
       </div>
     </div>
-  );
-}
-
-// Default export with Suspense
-export default function SignUpPage() {
-  return (
-    <Suspense fallback={<SignUpLoading />}>
-      <SignUpForm />
-    </Suspense>
   );
 } 

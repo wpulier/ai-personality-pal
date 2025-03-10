@@ -8,8 +8,9 @@ export async function GET(
   context: { params: { id: string } }
 ) {
   try {
-    // Get the twin ID from params
-    const { id } = context.params;
+    // Get the twin ID from context params - properly awaited
+    const params = await context.params;
+    const id = params.id;
     
     if (!id) {
       return NextResponse.json({ error: 'Twin ID is required' }, { status: 400 });
@@ -58,8 +59,9 @@ export async function DELETE(
   context: { params: { id: string } }
 ) {
   try {
-    // Get the twin ID from params
-    const { id } = context.params;
+    // Get the twin ID from context params - properly awaited
+    const params = await context.params;
+    const id = params.id;
     
     if (!id) {
       return NextResponse.json({ error: 'Twin ID is required' }, { status: 400 });

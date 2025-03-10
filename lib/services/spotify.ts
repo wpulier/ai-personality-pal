@@ -1,10 +1,20 @@
 import axios from 'axios';
 import { cache } from 'react';
 
-// Get credentials from environment variables
-const SPOTIFY_CLIENT_ID = process.env.SPOTIFY_CLIENT_ID;
-const SPOTIFY_CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET;
-const SPOTIFY_REDIRECT_URI = process.env.SPOTIFY_REDIRECT_URI;
+// Get credentials from environment variables - ensure we're using the correct variables for Next.js
+// Server-side environment variables don't need NEXT_PUBLIC prefix
+// Client-side environment variables need NEXT_PUBLIC prefix
+const SPOTIFY_CLIENT_ID = process.env.SPOTIFY_CLIENT_ID || process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID;
+const SPOTIFY_CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET || process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_SECRET;
+const SPOTIFY_REDIRECT_URI = process.env.SPOTIFY_REDIRECT_URI || process.env.NEXT_PUBLIC_SPOTIFY_REDIRECT_URI;
+
+// Log environment variable status for debugging
+console.log('Spotify environment variables status:', {
+  SPOTIFY_CLIENT_ID: SPOTIFY_CLIENT_ID ? 'present' : 'missing',
+  SPOTIFY_CLIENT_SECRET: SPOTIFY_CLIENT_SECRET ? 'present' : 'missing',
+  SPOTIFY_REDIRECT_URI: SPOTIFY_REDIRECT_URI ? 'present' : 'missing',
+  NODE_ENV: process.env.NODE_ENV
+});
 
 // Interface for Spotify data results
 export interface SpotifyError {
@@ -32,21 +42,33 @@ export type SpotifyResult = SpotifySuccess | SpotifyError | SpotifyNotProvided;
 // Helper function to get the redirect URI based on the request host
 const getRedirectUri = (requestHost?: string) => {
   try {
-    // For local development, always use localhost redirect
-    if (process.env.NODE_ENV === 'development' || requestHost?.includes('localhost')) {
-      console.log('Using localhost redirect URI for development');
-      return "http://localhost:3000/api/callback/spotify";
-    }
+    console.log('getRedirectUri called with host:', requestHost);
     
-    // For production, use the environment variable or fallback to the registered production URL
+    // If we have an environment variable for the redirect URI, use it
     if (SPOTIFY_REDIRECT_URI) {
       console.log('Using environment variable SPOTIFY_REDIRECT_URI:', SPOTIFY_REDIRECT_URI);
+      
+      // For local development, override with localhost if needed
+      if (process.env.NODE_ENV === 'development' || requestHost?.includes('localhost')) {
+        const localRedirectUri = "http://localhost:3000/api/callback/spotify";
+        console.log('Development environment detected, using local redirect URI:', localRedirectUri);
+        return localRedirectUri;
+      }
+      
       return SPOTIFY_REDIRECT_URI;
     }
     
-    // Fallback to the registered production URL
-    console.log('Using fallback production redirect URI');
-    return "https://ai-personality-pal.vercel.app/api/callback/spotify";
+    // For local development, use localhost
+    if (process.env.NODE_ENV === 'development' || requestHost?.includes('localhost')) {
+      const redirectUri = "http://localhost:3000/api/callback/spotify";
+      console.log('Using localhost redirect URI for development:', redirectUri);
+      return redirectUri;
+    }
+    
+    // For production, use the production URL
+    const productionUri = "https://ai-personality-pal.vercel.app/api/callback/spotify";
+    console.log('Using production redirect URI:', productionUri);
+    return productionUri;
   } catch (error) {
     console.error('Error generating redirect URI:', error);
     throw error;
@@ -56,6 +78,9 @@ const getRedirectUri = (requestHost?: string) => {
 // Validate Spotify credentials exist
 if (!SPOTIFY_CLIENT_ID || !SPOTIFY_CLIENT_SECRET) {
   console.warn('Missing Spotify credentials. Spotify integration will be disabled.');
+  console.warn('SPOTIFY_CLIENT_ID present:', !!SPOTIFY_CLIENT_ID);
+  console.warn('SPOTIFY_CLIENT_SECRET present:', !!SPOTIFY_CLIENT_SECRET);
+  console.warn('Check your .env file and environment variables.');
 }
 
 /**

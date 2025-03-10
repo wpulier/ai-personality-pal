@@ -1,31 +1,30 @@
 import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 
-// Helper function to create a Supabase client for server-side API routes
-// that properly passes along authentication cookies
+// Create a server-side Supabase client with proper cookie handling
 export function createServerSupabaseClient() {
-  const cookieStore = cookies();
-  
   return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
     {
-      // @ts-ignore - Supabase JS v2 has cookies support for server-side
+      auth: {
+        persistSession: true,
+      },
+      // @ts-ignore - Supabase JS v2 has cookies support
       cookies: {
         get(name: string) {
-          return cookieStore.get(name)?.value;
+          return cookies().get(name)?.value;
         }
       }
     }
   );
 }
 
-// Create a Supabase client with admin privileges for data access
-// that bypasses RLS policies
+// Create an admin client for operations that need to bypass RLS
 export function createAdminClient() {
   return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_KEY!,
+    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+    process.env.SUPABASE_SERVICE_KEY || '',
     {
       auth: {
         autoRefreshToken: false,
