@@ -3,6 +3,19 @@ import { updateTwinSpotifyData } from '@/lib/services/twin-service';
 import { createClient } from '@supabase/supabase-js';
 import { spotifyClient } from '@/lib/services/spotify';
 
+// Check for required environment variables and log if they're missing
+const supabaseEnvCheck = () => {
+  const missingVars: Record<string, string> = {};
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL) missingVars['url'] = 'missing';
+  if (!process.env.SUPABASE_SERVICE_KEY) missingVars['serviceKey'] = 'missing';
+  
+  if (Object.keys(missingVars).length > 0) {
+    console.log('Supabase environment variables are missing:', missingVars);
+  }
+  
+  return Object.keys(missingVars).length === 0;
+};
+
 export async function GET(request: NextRequest) {
   // Log environment variables status
   console.log('Spotify callback route - environment variables status:', {
@@ -89,6 +102,14 @@ export async function GET(request: NextRequest) {
       // Extract twin ID from state - it should be the twin's ID
       const twinId = state;
       console.log('Spotify callback route - Updating existing twin with ID:', twinId);
+      
+      // Check if required environment variables are available
+      if (!supabaseEnvCheck()) {
+        console.error('Spotify callback route - Supabase environment variables missing, cannot update twin');
+        return NextResponse.redirect(new URL('/', request.url) + '?error=Server%20configuration%20error', {
+          status: 302,
+        });
+      }
       
       // Create admin client to bypass RLS
       const adminClient = createClient(

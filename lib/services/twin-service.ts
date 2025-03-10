@@ -636,6 +636,12 @@ export async function updateTwinSpotifyData(twinId: string, code: string, explic
   try {
     console.log(`Updating twin ${twinId} with Spotify data using code`);
     
+    // Check for required environment variables
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
+      console.error('Missing required Supabase environment variables for updateTwinSpotifyData');
+      return false;
+    }
+    
     // Create admin client to bypass RLS
     const adminClient = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL || '',
