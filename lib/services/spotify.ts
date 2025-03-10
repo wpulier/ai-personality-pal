@@ -44,31 +44,25 @@ const getRedirectUri = (requestHost?: string) => {
   try {
     console.log('getRedirectUri called with host:', requestHost);
     
-    // If we have an environment variable for the redirect URI, use it
+    // Always use the environment variable if available - this is crucial for OAuth to work
     if (SPOTIFY_REDIRECT_URI) {
       console.log('Using environment variable SPOTIFY_REDIRECT_URI:', SPOTIFY_REDIRECT_URI);
-      
-      // For local development, override with localhost if needed
-      if (process.env.NODE_ENV === 'development' || requestHost?.includes('localhost')) {
-        const localRedirectUri = "http://localhost:3000/api/callback/spotify";
-        console.log('Development environment detected, using local redirect URI:', localRedirectUri);
-        return localRedirectUri;
-      }
-      
       return SPOTIFY_REDIRECT_URI;
     }
     
-    // For local development, use localhost
+    // Fallback only if no environment variable is set
+    console.error('⚠️ SPOTIFY_REDIRECT_URI environment variable is missing! This will cause authentication failures.');
+    
+    // For local development, use localhost as fallback
     if (process.env.NODE_ENV === 'development' || requestHost?.includes('localhost')) {
-      const redirectUri = "http://localhost:3000/api/callback/spotify";
-      console.log('Using localhost redirect URI for development:', redirectUri);
-      return redirectUri;
+      const localRedirectUri = "http://localhost:3000/api/callback/spotify";
+      console.log('Fallback: Using localhost redirect URI:', localRedirectUri);
+      return localRedirectUri;
     }
     
-    // For production, use the production URL
-    const productionUri = "https://ai-personality-pal.vercel.app/api/callback/spotify";
-    console.log('Using production redirect URI:', productionUri);
-    return productionUri;
+    // Last resort fallback for production
+    console.error('⚠️ Missing SPOTIFY_REDIRECT_URI in production! Please set this environment variable.');
+    return "https://ai-personality-pal.vercel.app/api/callback/spotify";
   } catch (error) {
     console.error('Error generating redirect URI:', error);
     throw error;

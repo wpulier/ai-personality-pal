@@ -15,14 +15,47 @@ if (!supabaseUrl || !supabaseAnonKey) {
   });
 }
 
-// Create a single Supabase client for the browser
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true,
-  }
-});
+// Create a mock client for build time or when environment variables are missing
+const createMockClient = () => {
+  console.warn('⚠️ Using mock Supabase client due to missing environment variables');
+  // Return a minimal mock that won't throw errors during build
+  return {
+    auth: {
+      getSession: async () => ({ data: { session: null } }),
+      signInWithPassword: async () => ({ data: null, error: new AuthError('Mock client - environment variables missing') }),
+      signUp: async () => ({ data: null, error: new AuthError('Mock client - environment variables missing') }),
+      signOut: async () => ({ error: null }),
+      onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } })
+    },
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          single: async () => ({ data: null, error: null }),
+          order: () => ({
+            limit: async () => ({ data: [], error: null })
+          })
+        }),
+        order: () => ({
+          limit: async () => ({ data: [], error: null })
+        })
+      }),
+      insert: async () => ({ data: null, error: new Error('Mock client - environment variables missing') }),
+      update: async () => ({ data: null, error: new Error('Mock client - environment variables missing') }),
+      delete: async () => ({ error: new Error('Mock client - environment variables missing') }),
+    })
+  };
+};
+
+// Create a Supabase client, falling back to mock client if env vars are missing
+export const supabase = (supabaseUrl && supabaseAnonKey) 
+  ? createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+      }
+    })
+  : createMockClient();
 
 /**
  * Helper function to check if user is authenticated
