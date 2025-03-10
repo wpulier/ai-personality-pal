@@ -15,8 +15,17 @@ export async function GET(request: NextRequest) {
     error: error ? error : 'none', 
     state,
     url: request.url,
-    host: request.headers.get('host')
+    host: request.headers.get('host'),
+    spotifyCredentialsConfigured: !!process.env.SPOTIFY_CLIENT_ID && !!process.env.SPOTIFY_CLIENT_SECRET
   });
+
+  // Check if Spotify credentials are configured
+  if (!process.env.SPOTIFY_CLIENT_ID || !process.env.SPOTIFY_CLIENT_SECRET) {
+    console.error('Spotify credentials are not configured');
+    return NextResponse.redirect(new URL('/', request.url) + '?error=Spotify%20credentials%20are%20not%20configured', {
+      status: 302,
+    });
+  }
 
   // Check if there was an error during the authorization
   if (error) {

@@ -271,12 +271,12 @@ export default function ProfilePage() {
 
             <div className="mb-6">
               <div className="flex justify-between items-center mb-2">
-                <h2 className="text-xl font-semibold text-white">Your Digital Twins</h2>
+                <h2 className="text-xl font-semibold text-white">Your Digital Twin</h2>
               </div>
 
               {isLoadingTwins ? (
                 <div className="text-center py-8">
-                  <div className="mb-2 text-gray-300">Loading your twins...</div>
+                  <div className="mb-2 text-gray-300">Loading your twin...</div>
                   <div className="flex justify-center space-x-2">
                     <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
                     <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
@@ -294,38 +294,63 @@ export default function ProfilePage() {
                   </button>
                 </div>
               ) : twins.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {twins.map((twin) => (
-                    <div key={twin.id} className="border border-gray-700 rounded-lg p-4 hover:shadow-md transition-shadow bg-gray-800/50">
-                      <h3 className="font-semibold text-lg mb-1 text-white">{twin.name}</h3>
-                      <p className="text-gray-400 text-sm mb-3">
-                        Created {new Date(twin.createdAt).toLocaleDateString()}
-                      </p>
-                      <div className="flex space-x-2">
-                        <Link
-                          href={`/chat/${twin.id}`}
-                          className="px-3 py-1 bg-blue-900/60 text-blue-300 rounded hover:bg-blue-800 transition-colors text-sm"
-                        >
-                          Chat
-                        </Link>
-                        <button
-                          onClick={() => confirmDelete(twin)}
-                          className="px-3 py-1 bg-red-900/60 text-red-300 rounded hover:bg-red-800 transition-colors text-sm"
-                        >
-                          Delete
-                        </button>
+                <div className="border border-gray-700 rounded-lg overflow-hidden bg-gradient-to-br from-gray-800/80 to-gray-900/80 shadow-lg">
+                  {/* Twin Header */}
+                  <div className="bg-gradient-to-r from-blue-900/40 to-indigo-900/40 p-5 border-b border-gray-700">
+                    <div className="flex items-center">
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xl font-bold mr-4">
+                        {twins[0].name.charAt(0)}
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-xl text-white">{twins[0].name}</h3>
+                        <p className="text-blue-300 text-sm">
+                          Created {new Date(twins[0].createdAt).toLocaleDateString()}
+                        </p>
                       </div>
                     </div>
-                  ))}
+                  </div>
+                  
+                  {/* Twin Actions */}
+                  <div className="p-5">
+                    <p className="text-gray-300 mb-5">
+                      Your digital twin learns from your preferences and personality to create an AI companion that reflects you.
+                    </p>
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <Link
+                        href={`/chat/${twins[0].id}`}
+                        className="flex-1 py-3 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all shadow-md text-center font-medium flex items-center justify-center"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clipRule="evenodd" />
+                        </svg>
+                        Chat with Your Twin
+                      </Link>
+                      <button
+                        onClick={() => confirmDelete(twins[0])}
+                        className="py-3 px-4 bg-red-600/80 hover:bg-red-700 text-white rounded-lg transition-colors shadow-md font-medium flex items-center justify-center"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                        Delete Twin
+                      </button>
+                    </div>
+                  </div>
                 </div>
               ) : (
-                <div className="text-center py-8 bg-gray-800/50 rounded-lg">
-                  <p className="text-gray-300 mb-4">You haven't created any digital twins yet.</p>
+                <div className="border border-gray-700 rounded-lg overflow-hidden bg-gradient-to-br from-gray-800/80 to-gray-900/80 shadow-lg p-6 text-center">
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500/30 to-indigo-600/30 flex items-center justify-center text-blue-300 mx-auto mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                  </div>
+                  <h3 className="text-white font-semibold text-lg mb-3">No Digital Twin Yet</h3>
+                  <p className="text-gray-300 mb-5">Create your digital twin to experience an AI companion that reflects your personality.</p>
                   <Link
                     href="/"
-                    className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-md hover:from-blue-600 hover:to-indigo-700 transition-colors"
+                    className="inline-block py-3 px-6 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all shadow-md font-medium"
                   >
-                    Create Your First Twin
+                    Create Your Twin
                   </Link>
                 </div>
               )}
@@ -338,7 +363,7 @@ export default function ProfilePage() {
       {showDeleteModal && twinToDelete && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
           <div className="bg-gray-900 rounded-lg p-6 max-w-md w-full shadow-xl border border-gray-800">
-            <h3 className="text-xl font-bold mb-4 text-white">Delete Twin?</h3>
+            <h3 className="text-xl font-bold mb-4 text-white">Delete Your Twin?</h3>
             <p className="mb-6 text-gray-300">
               Are you sure you want to delete "{twinToDelete.name}"? This action cannot be undone.
             </p>

@@ -4,6 +4,7 @@ import { cache } from 'react';
 // Get credentials from environment variables
 const SPOTIFY_CLIENT_ID = process.env.SPOTIFY_CLIENT_ID;
 const SPOTIFY_CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET;
+const SPOTIFY_REDIRECT_URI = process.env.SPOTIFY_REDIRECT_URI;
 
 // Interface for Spotify data results
 export interface SpotifyError {
@@ -31,6 +32,12 @@ export type SpotifyResult = SpotifySuccess | SpotifyError | SpotifyNotProvided;
 // Helper function to get the redirect URI based on the request host
 const getRedirectUri = (requestHost?: string) => {
   try {
+    // If SPOTIFY_REDIRECT_URI is set in environment variables, use it
+    if (SPOTIFY_REDIRECT_URI) {
+      console.log('Using environment variable SPOTIFY_REDIRECT_URI:', SPOTIFY_REDIRECT_URI);
+      return SPOTIFY_REDIRECT_URI;
+    }
+    
     // Handle local development environment specifically
     if (process.env.NODE_ENV === 'development' || requestHost?.includes('localhost')) {
       if (requestHost) {
@@ -46,9 +53,14 @@ const getRedirectUri = (requestHost?: string) => {
     }
     
     // For production environment with the specific deployment URL
-    if (requestHost?.includes('ai-personality-pal-tnoy.vercel.app')) {
-      console.log('Using tnoy.vercel.app redirect URI');
-      return "https://ai-personality-pal-tnoy.vercel.app/api/callback/spotify";
+    // Check for both possible production URLs
+    if (requestHost?.includes('ai-personality-pal-tnoy.vercel.app') || 
+        requestHost?.includes('ai-twin-eoqesudyh-wpuliers-projects.vercel.app')) {
+      const host = requestHost.includes('ai-personality-pal-tnoy.vercel.app') 
+        ? 'ai-personality-pal-tnoy.vercel.app' 
+        : 'ai-twin-eoqesudyh-wpuliers-projects.vercel.app';
+      console.log(`Using ${host} redirect URI`);
+      return `https://${host}/api/callback/spotify`;
     }
     
     // Fallback for any other hosts in production (not likely to be used but kept for safety)
