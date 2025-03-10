@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { FaSpotify } from 'react-icons/fa';
 import { TwinCreationLoading } from './twin-creation-loading';
 import { createTwin } from '@/lib/services/twin-service';
-import { handleAuthError } from '@/lib/supabase/client';
 
 interface UserFormProps {
   onTwinCreated?: (twinId: number) => void;
@@ -38,7 +37,20 @@ function UserFormContent({ onTwinCreated, authUserId, onError }: UserFormProps) 
   const [spotifyStatus, setSpotifyStatus] = useState<'none' | 'connected' | 'error'>('none');
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [spotifyData, setSpotifyData] = useState(null);
+  
+  // Define a proper type for Spotify data
+  interface SpotifyData {
+    status: string;
+    topArtists?: string[];
+    topGenres?: string[];
+    recentTracks?: Array<{
+      name: string;
+      artist: string;
+      playedAt: string;
+    }>;
+  }
+  
+  const [spotifyData, setSpotifyData] = useState<SpotifyData | null>(null);
 
   // Load saved form data from localStorage on initial render
   useEffect(() => {
@@ -66,6 +78,15 @@ function UserFormContent({ onTwinCreated, authUserId, onError }: UserFormProps) 
         setSpotifyData(decodedData);
         setSpotifyStatus('connected');
         setErrorMessage('Spotify connected successfully!');
+        
+        // Clean the URL to remove Spotify parameters
+        // This prevents issues with page refreshes and makes the URL cleaner
+        if (window.history.replaceState) {
+          const url = new URL(window.location.href);
+          url.searchParams.delete('spotify');
+          url.searchParams.delete('spotifyData');
+          window.history.replaceState({}, document.title, url.toString());
+        }
       } catch (e) {
         console.error('Error parsing Spotify data:', e);
         setSpotifyStatus('error');
@@ -115,7 +136,7 @@ function UserFormContent({ onTwinCreated, authUserId, onError }: UserFormProps) 
       const timeoutPromise = new Promise((_, reject) => {
         setTimeout(() => reject(new Error('Twin creation timed out')), 60000); // 60 second timeout
       });
-      
+
       // Race the twin creation against the timeout
       const twin = await Promise.race([
         createTwin({
@@ -131,12 +152,12 @@ function UserFormContent({ onTwinCreated, authUserId, onError }: UserFormProps) 
       if (!twin) {
         throw new Error('Failed to create twin');
       }
-
+      
       // Clear saved form data
       localStorage.removeItem('twin_form_name');
       localStorage.removeItem('twin_form_bio');
       localStorage.removeItem('twin_form_letterboxd');
-
+      
       // Show success message
       setErrorMessage('Twin created successfully!');
 
@@ -154,28 +175,6 @@ function UserFormContent({ onTwinCreated, authUserId, onError }: UserFormProps) 
         setErrorMessage('Creating your twin is taking longer than expected. Please try again with a simpler bio or try again later.');
         if (onError) onError('Creating your twin is taking longer than expected. Please try again with a simpler bio or try again later.');
         setIsCreatingTwin(false);
-        return;
-      }
-      
-      // Check if this is an auth error (like invalid refresh token)
-      const isAuthError = await handleAuthError(error);
-      if (isAuthError) {
-        // If auth error was handled, show a specific message and redirect to login
-        setErrorMessage('Your session has expired. Please sign in again.');
-        if (onError) onError('Your session has expired. Please sign in again.');
-        setIsCreatingTwin(false);
-        
-        // Save form data before redirecting
-        localStorage.setItem('twin_form_name', name);
-        localStorage.setItem('twin_form_bio', bio);
-        localStorage.setItem('twin_form_letterboxd', letterboxdUrl);
-        
-        // Redirect after a short delay
-        setTimeout(() => {
-          const currentUrl = window.location.href;
-          const returnPath = encodeURIComponent(currentUrl);
-          router.push(`/auth/login?returnTo=${returnPath}`);
-        }, 2000);
         return;
       }
       
@@ -199,15 +198,9 @@ function UserFormContent({ onTwinCreated, authUserId, onError }: UserFormProps) 
     const currentHost = window.location.host;
     console.log('Current host for Spotify redirect:', currentHost);
     
-    // Redirect to Spotify auth with user ID in state if available,
-    // otherwise use creation=true for the twin creation flow
-    if (authUserId) {
-      console.log('Redirecting to Spotify auth with user ID:', authUserId);
-      window.location.href = `/api/auth/spotify?userId=${authUserId}&host=${encodeURIComponent(currentHost)}`;
-    } else {
-      console.log('No user ID available, using creation=true state for twin creation flow');
-      window.location.href = `/api/auth/spotify?creation=true&host=${encodeURIComponent(currentHost)}`;
-    }
+    // Use a simple state parameter for the creation flow
+    // This ensures consistent handling in the callback
+    window.location.href = `/api/auth/spotify?state=home&host=${encodeURIComponent(currentHost)}`;
   };
 
   return (
@@ -288,25 +281,35 @@ function UserFormContent({ onTwinCreated, authUserId, onError }: UserFormProps) 
               <button
                 type="button"
                 onClick={handleSpotifyConnect}
-                className={`flex-shrink-0 flex items-center justify-center py-2 px-4 rounded-lg transition-colors text-sm font-medium shadow-sm ${
-                  spotifyStatus === 'connected' 
-                  ? 'bg-green-100 text-green-800 hover:bg-green-200' 
-                  : 'bg-green-600 hover:bg-green-700 text-white'
-                }`}
+                className={`mt-2 w-full flex items-center justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium 
+                  ${spotifyStatus === 'connected' 
+                    ? 'bg-green-600 hover:bg-green-700 text-white' 
+                    : 'bg-indigo-600 hover:bg-indigo-700 text-white'}`}
               >
-                <FaSpotify className="mr-2" />
-                {spotifyStatus === 'connected' ? 'Connected!' : 'Connect'}
+                {spotifyStatus === 'connected' ? (
+                  <>
+                    <span className="mr-2">✓</span>
+                    Spotify Connected
+                  </>
+                ) : (
+                  'Connect Spotify (Optional)'
+                )}
               </button>
             </div>
-            {spotifyStatus === 'connected' && (
-              <p className="text-sm text-green-600 bg-green-50 p-2 rounded-lg mt-2">
-                Your Spotify account is connected! Your twin will reflect your music preferences.
-              </p>
-            )}
-            {spotifyStatus === 'error' && (
-              <p className="text-sm text-red-600 bg-red-50 p-2 rounded-lg mt-2">
-                Failed to connect Spotify. Please try again.
-              </p>
+            {spotifyStatus === 'connected' && spotifyData && (
+              <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-md animate-fadeIn">
+                <p className="text-sm text-green-800 font-medium">Spotify connected! We found:</p>
+                {spotifyData.topArtists && spotifyData.topArtists.length > 0 && (
+                  <div className="mt-1">
+                    <p className="text-xs text-green-700">Top Artists: {spotifyData.topArtists.slice(0, 3).join(', ')}</p>
+                  </div>
+                )}
+                {spotifyData.topGenres && spotifyData.topGenres.length > 0 && (
+                  <div className="mt-1">
+                    <p className="text-xs text-green-700">Top Genres: {spotifyData.topGenres.slice(0, 3).join(', ')}</p>
+                  </div>
+                )}
+              </div>
             )}
           </div>
           

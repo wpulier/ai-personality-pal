@@ -32,60 +32,21 @@ export type SpotifyResult = SpotifySuccess | SpotifyError | SpotifyNotProvided;
 // Helper function to get the redirect URI based on the request host
 const getRedirectUri = (requestHost?: string) => {
   try {
-    // If SPOTIFY_REDIRECT_URI is set in environment variables, use it
+    // For local development, always use localhost redirect
+    if (process.env.NODE_ENV === 'development' || requestHost?.includes('localhost')) {
+      console.log('Using localhost redirect URI for development');
+      return "http://localhost:3000/api/callback/spotify";
+    }
+    
+    // For production, use the environment variable or fallback to the registered production URL
     if (SPOTIFY_REDIRECT_URI) {
       console.log('Using environment variable SPOTIFY_REDIRECT_URI:', SPOTIFY_REDIRECT_URI);
       return SPOTIFY_REDIRECT_URI;
     }
     
-    // Handle local development environment specifically
-    if (process.env.NODE_ENV === 'development' || requestHost?.includes('localhost')) {
-      if (requestHost) {
-        // Preserve the port from the actual running server
-        const matches = requestHost.match(/localhost:([0-9]+)/);
-        const port = matches ? matches[1] : '3000';
-        console.log(`Using dynamic localhost redirect URI with port ${port}`);
-        return `http://localhost:${port}/api/callback/spotify`;
-      } else {
-        console.log('Using default localhost redirect URI for development');
-        return "http://localhost:3000/api/callback/spotify";
-      }
-    }
-    
-    // For production environment with the specific deployment URL
-    // Check for both possible production URLs
-    if (requestHost?.includes('ai-personality-pal-tnoy.vercel.app') || 
-        requestHost?.includes('ai-twin-eoqesudyh-wpuliers-projects.vercel.app')) {
-      const host = requestHost.includes('ai-personality-pal-tnoy.vercel.app') 
-        ? 'ai-personality-pal-tnoy.vercel.app' 
-        : 'ai-twin-eoqesudyh-wpuliers-projects.vercel.app';
-      console.log(`Using ${host} redirect URI`);
-      return `https://${host}/api/callback/spotify`;
-    }
-    
-    // Fallback for any other hosts in production (not likely to be used but kept for safety)
-    if (requestHost) {
-      // For localhost, preserve the port number
-      if (requestHost.includes('localhost')) {
-        const matches = requestHost.match(/localhost:([0-9]+)/);
-        const port = matches ? matches[1] : '3000';
-        console.log(`Using dynamic localhost redirect URI with port ${port}`);
-        return `http://localhost:${port}/api/callback/spotify`;
-      }
-      
-      // For other hosts, sanitize and use https
-      const sanitizedHost = requestHost
-        .replace(/^https?:\/\//, ''); // Remove protocol if present
-
-      const protocol = 'https'; // Always use HTTPS for production
-      const redirectUri = `${protocol}://${sanitizedHost}/api/callback/spotify`;
-      console.log('Generating dynamic Spotify redirect URI:', redirectUri);
-      return redirectUri;
-    }
-    
-    // Ultimate fallback - should not reach here if requestHost is provided
-    console.log('No host detected, using default production redirect URI');
-    return "https://ai-personality-pal-tnoy.vercel.app/api/callback/spotify";
+    // Fallback to the registered production URL
+    console.log('Using fallback production redirect URI');
+    return "https://ai-personality-pal.vercel.app/api/callback/spotify";
   } catch (error) {
     console.error('Error generating redirect URI:', error);
     throw error;
