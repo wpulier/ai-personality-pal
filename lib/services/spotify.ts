@@ -39,34 +39,17 @@ export interface SpotifySuccess {
 
 export type SpotifyResult = SpotifySuccess | SpotifyError | SpotifyNotProvided;
 
-// Helper function to get the redirect URI based on the request host
-const getRedirectUri = (requestHost?: string) => {
-  try {
-    console.log('getRedirectUri called with host:', requestHost);
-    
-    // Always use the environment variable if available - this is crucial for OAuth to work
-    if (SPOTIFY_REDIRECT_URI) {
-      console.log('Using environment variable SPOTIFY_REDIRECT_URI:', SPOTIFY_REDIRECT_URI);
-      return SPOTIFY_REDIRECT_URI;
-    }
-    
-    // Fallback only if no environment variable is set
-    console.error('⚠️ SPOTIFY_REDIRECT_URI environment variable is missing! This will cause authentication failures.');
-    
-    // For local development, use localhost as fallback
-    if (process.env.NODE_ENV === 'development' || requestHost?.includes('localhost')) {
-      const localRedirectUri = "http://localhost:3000/api/callback/spotify";
-      console.log('Fallback: Using localhost redirect URI:', localRedirectUri);
-      return localRedirectUri;
-    }
-    
-    // Last resort fallback for production
-    console.error('⚠️ Missing SPOTIFY_REDIRECT_URI in production! Please set this environment variable.');
-    return "https://ai-personality-pal.vercel.app/api/callback/spotify";
-  } catch (error) {
-    console.error('Error generating redirect URI:', error);
-    throw error;
+// Helper function to get the redirect URI
+const getRedirectUri = () => {
+  // ALWAYS return the exact URI from environment variable - no modifications whatsoever
+  if (!SPOTIFY_REDIRECT_URI) {
+    console.error('🚨 CRITICAL ERROR: SPOTIFY_REDIRECT_URI is not defined!');
+    console.error('This will cause the "Invalid redirect URI" error in Spotify OAuth.');
+    console.error('Make sure this exact URI is also configured in your Spotify Developer Dashboard.');
   }
+  
+  // Return the exact URI from environment variable - no modifications
+  return SPOTIFY_REDIRECT_URI || '';
 };
 
 // Validate Spotify credentials exist
@@ -144,34 +127,33 @@ export class SpotifyClient {
   /**
    * Generate Spotify authorization URL
    */
-  getAuthUrl(state?: string, requestHost?: string): string {
-    if (!SPOTIFY_CLIENT_ID) {
-      throw new Error('SPOTIFY_CLIENT_ID is not configured');
-    }
-
+  getAuthUrl(state?: string): string {
     try {
-      // Use request host if provided
-      const redirectUri = getRedirectUri(requestHost);
+      // Use the exact redirect URI from environment variable
+      const redirectUri = getRedirectUri();
       console.log('Generating Spotify auth URL with redirect URI:', redirectUri);
       
+      // Define the scopes we need
       const scopes = [
-        'user-read-recently-played',
+        'user-read-private',
+        'user-read-email',
         'user-top-read',
-        'playlist-read-private'
-      ];
-
+        'user-read-recently-played'
+      ].join(' ');
+      
+      // Create the authorization URL with the exact redirect URI
       const params = new URLSearchParams({
-        client_id: SPOTIFY_CLIENT_ID,
         response_type: 'code',
+        client_id: SPOTIFY_CLIENT_ID || '',
+        scope: scopes,
         redirect_uri: redirectUri,
-        scope: scopes.join(' '),
-        ...(state && { state })
+        state: state || 'spotify-auth'
       });
-
+      
       return `https://accounts.spotify.com/authorize?${params.toString()}`;
     } catch (error) {
       console.error('Error generating Spotify auth URL:', error);
-      throw new Error('Failed to generate Spotify authorization URL');
+      throw error;
     }
   }
 
@@ -179,48 +161,51 @@ export class SpotifyClient {
    * Get access token from authorization code
    * Caches tokens to avoid unnecessary requests
    */
-  async getAccessToken(code: string, requestHost?: string): Promise<string> {
-    if (!SPOTIFY_CLIENT_ID || !SPOTIFY_CLIENT_SECRET) {
-      throw new Error('Spotify credentials are not configured');
-    }
-    
-    const redirectUri = getRedirectUri(requestHost);
-    console.log('Getting access token with redirect URI:', redirectUri);
-
+  async getAccessToken(code: string): Promise<string> {
     try {
-      const params = new URLSearchParams({
-        grant_type: 'authorization_code',
-        code,
-        redirect_uri: redirectUri
-      });
-
-      const response = await axios.post('https://accounts.spotify.com/api/token',
-        params.toString(),
-        {
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'Authorization': 'Basic ' + Buffer.from(
-              SPOTIFY_CLIENT_ID + ':' + SPOTIFY_CLIENT_SECRET
-            ).toString('base64')
-          },
-          timeout: 10000 // 10 second timeout
+      // Always use the exact redirect URI from environment variable
+      const redirectUri = getRedirectUri();
+      console.log('Getting access token with redirect URI:', redirectUri);
+      
+      // Check the token cache first
+      const cacheKey = `token:${code}`;
+      const cachedToken = this.tokenCache.get(cacheKey);
+      
+      if (cachedToken && cachedToken.expires > Date.now()) {
+        console.log('Using cached Spotify access token');
+        return cachedToken.token;
+      }
+      
+      // Exchange the code for an access token
+      const tokenResponse = await axios({
+        method: 'post',
+        url: 'https://accounts.spotify.com/api/token',
+        params: {
+          grant_type: 'authorization_code',
+          code,
+          redirect_uri: redirectUri
+        },
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Authorization': `Basic ${Buffer.from(`${SPOTIFY_CLIENT_ID}:${SPOTIFY_CLIENT_SECRET}`).toString('base64')}`
         }
-      );
-
-      // Cache the token with expiration
-      const expiresIn = response.data.expires_in || 3600;
-      this.tokenCache.set(code, {
-        token: response.data.access_token,
+      });
+      
+      // Cache the token
+      const accessToken = tokenResponse.data.access_token;
+      const expiresIn = tokenResponse.data.expires_in;
+      this.tokenCache.set(cacheKey, {
+        token: accessToken,
         expires: Date.now() + (expiresIn * 1000)
       });
-
-      return response.data.access_token;
+      
+      return accessToken;
     } catch (error) {
-      console.error('Failed to get Spotify access token:', error);
+      console.error('Error getting Spotify access token:', error);
       if (axios.isAxiosError(error) && error.response) {
-        throw new Error(`Spotify authentication failed: ${error.response.data.error_description || error.response.data.error}`);
+        console.error('Spotify token exchange error details:', error.response.data);
       }
-      throw new Error('Failed to authenticate with Spotify');
+      throw error;
     }
   }
 

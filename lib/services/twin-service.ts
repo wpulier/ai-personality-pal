@@ -632,7 +632,7 @@ export async function claimTwin(twinId: number, userId: string): Promise<boolean
  * @param code The Spotify authorization code
  * @param explicitHost Optional host to use for the redirect URI
  */
-export async function updateTwinSpotifyData(twinId: string, code: string, explicitHost?: string): Promise<boolean> {
+export async function updateTwinSpotifyData(twinId: string, code: string): Promise<boolean> {
   try {
     console.log(`Updating twin ${twinId} with Spotify data using code`);
     
@@ -655,10 +655,7 @@ export async function updateTwinSpotifyData(twinId: string, code: string, explic
     );
     
     // Exchange the code for an access token
-    // Use explicit host if provided, otherwise fall back to environment variables
-    const host = explicitHost || process.env.VERCEL_URL || process.env.NEXT_PUBLIC_APP_URL || 'localhost:3000';
-    console.log(`Using host for Spotify token exchange: ${host}`);
-    const accessToken = await spotifyClient.getAccessToken(code, host);
+    const accessToken = await spotifyClient.getAccessToken(code);
     console.log('Successfully obtained Spotify access token');
     
     // Get user's Spotify data

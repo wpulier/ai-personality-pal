@@ -85,8 +85,8 @@ export async function GET(request: NextRequest) {
     if (state === 'home') {
       console.log('Spotify callback route - This is part of the twin creation flow');
       
-      // Get Spotify data directly
-      const accessToken = await spotifyClient.getAccessToken(code, host);
+      // Get Spotify data directly - don't pass host parameter anymore
+      const accessToken = await spotifyClient.getAccessToken(code);
       const spotifyData = await spotifyClient.getUserData(accessToken);
       
       // Encode this data to pass back to the creation form
@@ -143,7 +143,7 @@ export async function GET(request: NextRequest) {
         console.log('Spotify callback route - Falling back to creation flow to get Spotify data for new twin');
         
         // Get Spotify data
-        const accessToken = await spotifyClient.getAccessToken(code, host);
+        const accessToken = await spotifyClient.getAccessToken(code);
         const spotifyData = await spotifyClient.getUserData(accessToken);
         
         // Encode this data to pass back to the creation form
@@ -157,13 +157,32 @@ export async function GET(request: NextRequest) {
       
       // Update the twin with Spotify data
       console.log('Spotify callback route - Updating twin with Spotify data, ID:', twin.id);
-      await updateTwinSpotifyData(twin.id, code, host);
-      
-      // Redirect to twin page
-      console.log('Spotify callback route - Spotify data updated successfully, redirecting to twin page:', twin.id);
-      return NextResponse.redirect(new URL(`/chat/${twin.id}`, request.url), {
-        status: 302,
-      });
+      try {
+        console.log(`Updating twin ${twinId} with Spotify data - connecting to Spotify...`);
+        
+        // Get Spotify data using the code
+        const accessToken = await spotifyClient.getAccessToken(code);
+        const spotifyData = await spotifyClient.getUserData(accessToken);
+        
+        if (spotifyData.status !== 'success') {
+          console.error('Failed to get Spotify data:', spotifyData);
+          return NextResponse.redirect(new URL('/', request.url) + `?error=${encodeURIComponent(`Failed to get Spotify data: ${spotifyData.status}`)}`);
+        }
+        
+        // Update the twin with Spotify data
+        await updateTwinSpotifyData(twin.id, code);
+        
+        // Redirect to the twin's chat page with a success message
+        console.log('Spotify callback route - Successfully updated twin with Spotify data, redirecting to twin page');
+        return NextResponse.redirect(new URL(`/chat/${twin.id}`, request.url) + `?message=Your+Spotify+account+has+been+successfully+connected!`, {
+          status: 302,
+        });
+      } catch (error) {
+        console.error('Spotify callback route - Error processing Spotify callback:', error);
+        return NextResponse.redirect(new URL('/', request.url) + `?error=${encodeURIComponent('Error connecting Spotify: ' + (error instanceof Error ? error.message : 'Unknown error'))}`, {
+          status: 302,
+        });
+      }
     }
   } catch (error) {
     console.error('Spotify callback route - Error processing Spotify callback:', error);
