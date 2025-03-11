@@ -17,19 +17,19 @@ export default function Home() {
     const checkAuth = async () => {
       try {
         setLoading(true);
-        
+
         // Check for current session
         const { user: authUser } = await getAuthSession();
-        
+
         if (authUser) {
           setUser(authUser);
-          
+
           // Fetch user's twins
           const response = await fetch(`/api/twins?userId=${authUser.id}`);
           if (response.ok) {
             const data = await response.json();
             setTwins(data);
-            
+
             // If user has at least one twin, redirect to their chat page
             if (data.length > 0) {
               router.push(`/chat/${data[0].id}`);
@@ -43,48 +43,51 @@ export default function Home() {
         setLoading(false);
       }
     };
-    
+
     checkAuth();
   }, [router]);
 
   // Simple login controls
   const LoginControls = () => {
     return (
-      <div className="fixed top-0 right-0 bg-black/80 text-white p-2 m-2 rounded text-xs">
-        <div className="flex items-center space-x-2">
+      <div className="fixed top-0 right-0 m-4 z-50">
+        <div className="flex items-center">
           {user ? (
             <>
-              <span>👤</span>
-              <button 
+              <Link
+                href={`/profile`}
+                className="bg-gray-800 text-gray-300 hover:bg-gray-700 px-3 py-1.5 rounded-md text-sm font-medium shadow-sm border border-gray-700 transition-all duration-200 flex items-center"
+              >
+                <FaUser className="mr-2 text-blue-400" size={14} />
+                Profile
+              </Link>
+              {twins.length > 0 && (
+                <Link
+                  href={`/chat/${twins[0].id}`}
+                  className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white hover:opacity-90 px-3 py-1.5 rounded-md text-sm font-medium shadow-sm transition-all duration-200 ml-3"
+                >
+                  Start Chat
+                </Link>
+              )}
+              <button
                 onClick={async () => {
                   await signOut();
                   setUser(null);
                   setTwins([]);
                   router.push('/');
                 }}
-                className="bg-red-600 hover:bg-red-700 px-2 py-0.5 rounded"
+                className="bg-gray-800 text-gray-300 hover:bg-gray-700 px-3 py-1.5 rounded-md text-sm font-medium shadow-sm border border-gray-700 transition-all duration-200 ml-3"
               >
-                Logout
+                Sign Out
               </button>
-              {twins.length > 0 && (
-                <Link 
-                  href={`/chat/${twins[0].id}`} 
-                  className="bg-green-600 hover:bg-green-700 px-2 py-0.5 rounded"
-                >
-                  Chat
-                </Link>
-              )}
             </>
           ) : (
-            <>
-              <span>👻</span>
-              <Link 
-                href="/auth/login" 
-                className="bg-blue-600 hover:bg-blue-700 px-2 py-0.5 rounded"
-              >
-                Login
-              </Link>
-            </>
+            <Link
+              href="/auth/login"
+              className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white hover:opacity-90 px-4 py-2 rounded-md text-sm font-medium shadow-sm transition-all duration-200"
+            >
+              Login
+            </Link>
           )}
         </div>
       </div>
@@ -93,15 +96,19 @@ export default function Home() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-black">
+      <div className="min-h-screen flex items-center justify-center bg-gray-950"
+        style={{
+          backgroundImage: `radial-gradient(circle at 25px 25px, rgba(75, 85, 99, 0.1) 2%, transparent 0%), radial-gradient(circle at 75px 75px, rgba(75, 85, 99, 0.15) 2%, transparent 0%)`,
+          backgroundSize: '100px 100px',
+        }}>
         <div className="text-center">
-          <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent mb-4">
+          <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-blue-500 to-indigo-600 bg-clip-text text-transparent mb-4">
             AI Personality Pal
           </h1>
           <div className="flex justify-center space-x-3 mt-8">
-            <div className="w-3 h-3 bg-gradient-to-br from-blue-400 to-indigo-400 rounded-full animate-pulse" style={{ animationDuration: '0.9s' }}></div>
-            <div className="w-3 h-3 bg-gradient-to-br from-blue-400 to-indigo-400 rounded-full animate-pulse" style={{ animationDuration: '0.9s', animationDelay: '0.3s' }}></div>
-            <div className="w-3 h-3 bg-gradient-to-br from-blue-400 to-indigo-400 rounded-full animate-pulse" style={{ animationDuration: '0.9s', animationDelay: '0.6s' }}></div>
+            <div className="w-3 h-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full animate-pulse" style={{ animationDuration: '0.9s' }}></div>
+            <div className="w-3 h-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full animate-pulse" style={{ animationDuration: '0.9s', animationDelay: '0.3s' }}></div>
+            <div className="w-3 h-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full animate-pulse" style={{ animationDuration: '0.9s', animationDelay: '0.6s' }}></div>
           </div>
         </div>
       </div>
@@ -109,21 +116,21 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center bg-black p-4"
-      style={{ 
-        backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%23333' fill-opacity='0.2' fill-rule='evenodd'/%3E%3C/svg%3E")`,
-        backgroundSize: '400px',
+    <main className="min-h-screen flex flex-col items-center justify-center bg-gray-950 p-4"
+      style={{
+        backgroundImage: `radial-gradient(circle at 25px 25px, rgba(75, 85, 99, 0.1) 2%, transparent 0%), radial-gradient(circle at 75px 75px, rgba(75, 85, 99, 0.15) 2%, transparent 0%)`,
+        backgroundSize: '100px 100px',
       }}
     >
       <LoginControls />
 
       {/* Header section */}
       <header className="text-center mb-8">
-        <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent mb-4">
-          Meet Your Twin
+        <h1 className="text-4xl md:text-6xl font-bold bg-gradient-to-r from-blue-500 to-indigo-600 bg-clip-text text-transparent mb-6">
+          Create Your Digital Twin
         </h1>
         <p className="text-gray-300 text-lg max-w-2xl mx-auto">
-          Your digital twin learns your style, interests, and personality—then chats like you do.
+          An AI companion that talks, thinks, and interacts just like you.
         </p>
       </header>
 
@@ -131,38 +138,38 @@ export default function Home() {
       <div className="w-full max-w-lg bg-gray-900 rounded-xl shadow-2xl border border-gray-800 overflow-hidden">
         {/* Why Create a Twin Section */}
         <div className="p-6 md:p-8">
-          <h2 className="text-xl font-bold text-white mb-4">Why Create a Twin?</h2>
-          <div className="space-y-4">
+          <h2 className="text-xl font-bold text-white mb-6 text-center">Why Build a Twin?</h2>
+          <div className="space-y-6">
             {/* Feature item */}
             <div className="flex items-start">
-              <div className="flex-shrink-0 bg-indigo-800 rounded-lg p-2 mr-4">
+              <div className="flex-shrink-0 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-lg p-2 mr-4 shadow-md">
                 <FaUser className="text-white" size={20} />
               </div>
               <div>
-                <h3 className="text-lg font-medium text-white">Self-expression</h3>
-                <p className="text-gray-400">Share your unique perspective through an AI that captures your style.</p>
+                <h3 className="text-lg font-medium text-white">Explore Your Inner Self</h3>
+                <p className="text-gray-300">Your AI twin helps you reflect on life's challenges, bringing clarity and insight to your personal journey.</p>
               </div>
             </div>
-            
+
             {/* Feature item */}
             <div className="flex items-start">
-              <div className="flex-shrink-0 bg-indigo-800 rounded-lg p-2 mr-4">
+              <div className="flex-shrink-0 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-lg p-2 mr-4 shadow-md">
                 <FaRobot className="text-white" size={20} />
               </div>
               <div>
-                <h3 className="text-lg font-medium text-white">Creative AI</h3>
-                <p className="text-gray-400">An AI that understands your taste in movies, music, and more.</p>
+                <h3 className="text-lg font-medium text-white">Soul-Aligned Growth</h3>
+                <p className="text-gray-300">Guided by your unique experiences and inner wisdom, your twin evolves alongside you, fostering deeper understanding and self-discovery.</p>
               </div>
             </div>
           </div>
-          
+
           {/* CTA Button */}
           <div className="mt-8">
             <Link
               href={user ? "/create" : "/auth/signup"}
-              className="w-full inline-flex justify-center items-center py-3 px-5 text-base font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition duration-300 ease-in-out"
+              className="w-full inline-flex justify-center items-center py-3 px-5 text-base font-medium text-white bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 rounded-lg transition duration-300 ease-in-out shadow-md"
             >
-              {user ? "Create Your Twin" : "Sign Up to Create"}
+              Get Started
               <FaArrowRight className="ml-2" />
             </Link>
           </div>

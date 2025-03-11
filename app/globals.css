@@ -1,3 +1,4 @@
+/* Tailwind CSS directives - these are processed by the Tailwind compiler */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -5,12 +6,36 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --primary: #3b82f6;
+  --primary-foreground: #ffffff;
+  --secondary: #f3f4f6;
+  --secondary-foreground: #1f2937;
+  --accent: #8b5cf6;
+  --muted: #f3f4f6;
+  --muted-foreground: #6b7280;
+  --card: #ffffff;
+  --card-foreground: #171717;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --error: #ef4444;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
+    --primary: #60a5fa;
+    --primary-foreground: #ffffff;
+    --secondary: #1f2937;
+    --secondary-foreground: #f3f4f6;
+    --accent: #a78bfa;
+    --muted: #1f2937;
+    --muted-foreground: #9ca3af;
+    --card: #0a0a0a;
+    --card-foreground: #ededed;
+    --success: #34d399;
+    --warning: #fbbf24;
+    --error: #f87171;
   }
 }
 
@@ -18,4 +43,59 @@ body {
   color: var(--foreground);
   background: var(--background);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Ensure chat messages always have the right color regardless of color scheme */
+.chat-message-user {
+  color: white !important;
+}
+
+.chat-message-twin {
+  color: #171717 !important;
+}
+
+/* Custom scrollbar styling */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #c5c5c5;
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #a0a0a0;
+}
+
+/* Loading bar animation */
+@keyframes loadingBar {
+  0% {
+    width: 0%;
+    opacity: 1;
+  }
+
+  50% {
+    width: 70%;
+    opacity: 0.8;
+  }
+
+  80% {
+    width: 85%;
+    opacity: 0.7;
+  }
+
+  100% {
+    width: 95%;
+    opacity: 0.6;
+  }
+}
+
+.animate-loadingBar {
+  animation: loadingBar 10s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
