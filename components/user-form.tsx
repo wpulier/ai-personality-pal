@@ -233,14 +233,14 @@ function UserFormContent({ onTwinCreated, authUserId, onError }: UserFormProps) 
 
           <div className="space-y-1">
             <label htmlFor="bio" className="block text-sm font-medium text-gray-200">
-              Bio <span className="text-red-400">*</span>
+              What do you do for a living? <span className="text-red-400">*</span>
             </label>
             <textarea
               id="bio"
               value={bio}
               onChange={(e) => setBio(e.target.value)}
               rows={4}
-              placeholder="Tell us about yourself - hobbies, interests, personality, music taste, etc."
+              placeholder="Tell us about your job, career, or daily work. What do you spend your time doing?"
               className={`mt-1 block w-full rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-3 border transition-all duration-200 bg-gray-800 text-white focus:shadow-md ${validationErrors.bio ? 'border-red-500 bg-red-900/20' : 'border-gray-700'
                 }`}
             ></textarea>

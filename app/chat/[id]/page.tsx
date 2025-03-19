@@ -13,6 +13,7 @@ import { SpotifyConnectModal } from '@/components/spotify-connect-modal';
 import { TwinPersonalitySection } from '@/components/twin-personality-section';
 import { TwinMediaSection } from '@/components/twin-media-section';
 import { createClient } from '@supabase/supabase-js';
+import { TwinEmotionalAnalysis } from '@/components/twin-emotional-analysis';
 
 // Create a Supabase client
 const supabase = createClient(
@@ -637,6 +638,7 @@ export default function ChatPage() {
     const messageToSend = message;
     setMessage('');
     setIsTyping(true);
+    setIsSending(true);
 
     // Optimistically add user message to the UI
     const tempUserMessage = {
@@ -769,6 +771,21 @@ export default function ChatPage() {
           createdAt: data.aiMessage.created_at || new Date().toISOString()
         }
       ]);
+
+      // After successful message, refresh the user data to get any updated analysis
+      // This happens automatically in the backend every 10 messages
+      try {
+        // We'll refresh user data to get any updated emotional analysis
+        // that might have been generated on the server
+        const updatedUserResponse = await fetch(`/api/twins/${user.id}`);
+        if (updatedUserResponse.ok) {
+          const updatedUserData = await updatedUserResponse.json();
+          setUser(updatedUserData);
+        }
+      } catch (updateError) {
+        console.error('Error refreshing user data:', updateError);
+      }
+
     } catch (err) {
       console.error('Error sending message:', err);
       setIsTyping(false);
@@ -838,190 +855,27 @@ export default function ChatPage() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-950"
+      <div className="flex flex-col h-screen bg-gray-950"
         style={{
           backgroundImage: `radial-gradient(circle at 25px 25px, rgba(75, 85, 99, 0.1) 2%, transparent 0%), radial-gradient(circle at 75px 75px, rgba(75, 85, 99, 0.15) 2%, transparent 0%)`,
           backgroundSize: '100px 100px',
         }}
       >
-        <div className="text-center p-10 bg-gray-900 backdrop-blur-sm rounded-xl shadow-lg max-w-md w-full mx-4 border border-gray-800">
-          <div className="mb-6 text-blue-400 font-bold text-xl">Loading your conversation</div>
-          <div className="flex justify-center space-x-3 mb-8">
-            <div className="w-3 h-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full animate-pulse" style={{ animationDuration: '0.9s' }}></div>
-            <div className="w-3 h-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full animate-pulse" style={{ animationDuration: '0.9s', animationDelay: '0.3s' }}></div>
-            <div className="w-3 h-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full animate-pulse" style={{ animationDuration: '0.9s', animationDelay: '0.6s' }}></div>
-          </div>
-          <p className="text-gray-400 text-sm">Preparing your twin for conversation...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex min-h-screen items-center justify-center p-8 bg-gray-950"
-        style={{
-          backgroundImage: `radial-gradient(circle at 25px 25px, rgba(75, 85, 99, 0.1) 2%, transparent 0%), radial-gradient(circle at 75px 75px, rgba(75, 85, 99, 0.15) 2%, transparent 0%)`,
-          backgroundSize: '100px 100px',
-        }}
-      >
-        <div className="max-w-md w-full bg-gray-900 backdrop-blur-sm p-8 rounded-xl shadow-lg text-center border border-gray-800">
-          <div className={`font-bold mb-6 text-2xl ${error.includes('✅') ? 'text-emerald-500' : 'text-rose-500'}`}>
-            {error.includes('✅') ? 'Success!' : 'Something went wrong'}
-          </div>
-          <div className={`mb-8 p-5 rounded-lg ${error.includes('✅') ? 'bg-emerald-900/30 border border-emerald-800 text-gray-300' : 'bg-rose-900/30 border border-rose-800 text-gray-300'}`}>
-            {error}
-          </div>
-          {error.includes('✅') ? (
-            <>
-              <p className="mb-8 text-gray-400">
-                Your twin is now connected to your account and will be saved for the future.
-              </p>
-              <div className="flex flex-col md:flex-row space-y-3 md:space-y-0 md:space-x-4 justify-center">
-                <Link href="/"
-                  className="inline-block bg-gradient-to-br from-blue-600 to-indigo-700 text-white px-6 py-3 rounded-lg font-medium hover:shadow-lg transition-all duration-200">
-                  Return to Home
-                </Link>
-                <button
-                  onClick={() => window.location.reload()}
-                  className="inline-block bg-gray-800 border border-gray-700 text-gray-300 px-6 py-3 rounded-lg font-medium hover:bg-gray-700 transition-all duration-200">
-                  Continue to Chat
-                </button>
-              </div>
-            </>
-          ) : (
-            <Link href="/"
-              className="inline-block bg-gradient-to-br from-blue-600 to-indigo-700 text-white px-6 py-3 rounded-lg font-medium hover:shadow-lg transition-all duration-200">
-              Return to Home
-            </Link>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div className="flex min-h-screen items-center justify-center p-8 bg-gray-950"
-        style={{
-          backgroundImage: `radial-gradient(circle at 25px 25px, rgba(75, 85, 99, 0.1) 2%, transparent 0%), radial-gradient(circle at 75px 75px, rgba(75, 85, 99, 0.15) 2%, transparent 0%)`,
-          backgroundSize: '100px 100px',
-        }}
-      >
-        <div className="max-w-md w-full bg-gray-900 backdrop-blur-sm p-8 rounded-xl shadow-lg text-center border border-gray-800">
-          <div className="text-amber-500 font-bold mb-4 text-2xl">Twin Not Found</div>
-          <div className="text-gray-300 mb-8 p-5 bg-amber-900/20 rounded-lg border border-amber-800">
-            We couldn&apos;t find the digital twin you&apos;re looking for.
-          </div>
-          <Link href="/auth/signup"
-            className="inline-block bg-gradient-to-br from-blue-600 to-indigo-700 text-white px-6 py-3 rounded-lg font-medium hover:shadow-lg transition-all duration-200">
-            Sign Up to Create a Twin
+        {/* Fixed header */}
+        <header className="bg-gray-900 shadow-md py-3 px-4 md:px-6 flex items-center border-b border-gray-800">
+          <Link href="/" className="text-gray-400 hover:text-white mr-3">
+            <FaArrowLeft />
           </Link>
-        </div>
-      </div>
-    );
-  }
+          <h1 className="text-lg font-semibold text-white">Loading Chat</h1>
+        </header>
 
-  return (
-    <div className="flex flex-col h-screen max-h-screen overflow-hidden bg-gradient-to-br from-indigo-50 via-blue-50 to-purple-50"
-      style={{
-        backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%23bcc6f5' fill-opacity='0.1' fill-rule='evenodd'/%3E%3C/svg%3E")`,
-      }}
-    >
-      {/* Header section */}
-      <header className="bg-gray-900 backdrop-blur-sm shadow-md py-2 md:py-4 px-4 md:px-8 flex items-center z-10 border-b border-gray-800 flex-shrink-0">
-        <div className="flex-1 flex items-center">
-          {!authUser && (
-            <Link href="/" className="text-blue-400 hover:text-blue-300 flex items-center mr-4 transition-colors">
-              <FaArrowLeft size={20} className="md:text-lg" />
-            </Link>
-          )}
-          <div className="font-semibold text-lg md:text-xl text-white">{user?.name || 'Twin'}&apos;s Chat</div>
-        </div>
-        <div className="flex items-center space-x-2 md:space-x-3">
-          <ProfileButton />
-          <button
-            onClick={() => setShowInfo(!showInfo)}
-            className="flex items-center space-x-1 px-3 py-2 md:px-4 md:py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg text-sm md:text-base transition-colors"
-            aria-label="Twin information"
-          >
-            <FaInfoCircle size={16} className="md:text-lg" />
-            <span className="hidden md:inline">Info</span>
-          </button>
-        </div>
-      </header>
-
-      {/* Sign-up banner for users who are not logged in and have an unclaimed twin */}
-      {!authUser && user && !user.auth_user_id && (
-        <div className="bg-gradient-to-r from-blue-700/90 to-indigo-700/90 backdrop-blur-sm text-white py-3 px-4 flex items-center justify-between border-b border-blue-900">
-          <div className="flex-1">
-            <p className="text-sm md:text-base"><FaUserPlus className="inline-block mr-2" /> Sign up to save your twin and access it anytime!</p>
-          </div>
-          <div className="ml-2">
-            <Link
-              href={`/auth/signup?twinId=${user.id}`}
-              className="bg-white text-blue-700 hover:bg-blue-50 px-4 py-1.5 rounded text-sm font-medium transition-colors shadow-sm flex items-center"
-            >
-              <FaUserPlus className="mr-1.5" size={14} /> Sign Up
-            </Link>
-          </div>
-        </div>
-      )}
-
-      {/* Main chat container */}
-      <div className="flex-1 flex flex-col overflow-hidden bg-gray-950"
-        style={{
-          backgroundImage: `radial-gradient(circle at 25px 25px, rgba(75, 85, 99, 0.1) 2%, transparent 0%), radial-gradient(circle at 75px 75px, rgba(75, 85, 99, 0.15) 2%, transparent 0%)`,
-          backgroundSize: '100px 100px',
-        }}
-      >
-        <div
-          className="flex-1 overflow-y-auto px-4 md:px-8 py-6 space-y-5 md:space-y-7 md:mx-auto md:max-w-3xl lg:max-w-4xl"
-        >
-          {messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex ${message.isUser ? "justify-end" : "justify-start"
-                } animate-fadeIn`}
-              style={{ animationDuration: "0.3s" }}
-            >
-              <div className={`max-w-[85%] md:max-w-[70%] flex items-start gap-2 md:gap-3 ${message.isUser ? "flex-row-reverse" : "flex-row"
-                }`}>
-                {!message.isUser && (
-                  <div className="w-7 h-7 md:w-9 md:h-9 mt-1 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex-shrink-0 flex items-center justify-center text-white text-sm font-medium shadow-md ring-2 ring-gray-900">
-                    {user?.name ? user.name.charAt(0).toUpperCase() : "T"}
-                  </div>
-                )}
-
-                <div
-                  className={`rounded-2xl ${message.isUser
-                    ? 'bg-gradient-to-r from-blue-600 to-indigo-700 text-white shadow-lg border border-indigo-900/30'
-                    : 'bg-gray-800 border border-gray-700 text-white shadow-md'
-                    } px-4 py-3 md:px-5 md:py-3.5`}
-                >
-                  <div className="text-white leading-relaxed text-sm md:text-base">
-                    {message.content.split("\n").map((line, i) => (
-                      <p key={i} className={i > 0 ? "mt-3" : ""}>
-                        {line}
-                      </p>
-                    ))}
-                  </div>
-                </div>
-
-                {message.isUser && (
-                  <div className="w-7 h-7 md:w-9 md:h-9 mt-1 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex-shrink-0 flex items-center justify-center text-white text-sm font-medium shadow-md ring-2 ring-gray-900">
-                    {authUser ? authUser.name?.charAt(0).toUpperCase() : "Y"}
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-
-          {isTyping && (
-            <div className="flex justify-start animate-fadeIn" style={{ animationDuration: "0.3s" }}>
-              <div className="flex items-start max-w-[70%] gap-2 md:gap-3">
+        {/* Content area with left-aligned chat bubble */}
+        <div className="flex-1 px-4 md:px-8 py-6">
+          <div className="max-w-3xl mx-auto">
+            <div className="flex justify-start">
+              <div className="flex items-start gap-2 md:gap-3">
                 <div className="w-7 h-7 md:w-9 md:h-9 mt-1 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex-shrink-0 flex items-center justify-center text-white text-sm font-medium shadow-md ring-2 ring-gray-900">
-                  {user?.name ? user.name.charAt(0).toUpperCase() : "T"}
+                  T
                 </div>
                 <div className="bg-gray-800 border border-gray-700 rounded-2xl px-4 py-3 md:px-5 md:py-3.5 shadow-md">
                   <div className="flex space-x-2">
@@ -1032,345 +886,477 @@ export default function ChatPage() {
                 </div>
               </div>
             </div>
-          )}
-
-          {/* Scroll to bottom anchor */}
-          <div ref={messagesEndRef} />
+          </div>
         </div>
 
-        {/* Message input - fixed at bottom */}
-        <div className="bg-gray-900 backdrop-blur-sm border-t border-gray-800 p-3 md:p-4 flex-shrink-0 pb-safe">
-          <form
-            onSubmit={onSubmit}
-            className="relative max-w-5xl mx-auto w-full flex items-center space-x-2 md:space-x-4"
-          >
-            <input
-              ref={inputRef}
-              className="flex-1 bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 md:px-4 md:py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all placeholder-gray-500 text-sm md:text-base text-white shadow-inner"
-              placeholder="Type a message..."
-              value={message}
-              onChange={handleMessageChange}
-              disabled={isTyping || isSending}
-            />
-            <button
-              type="button"
-              onClick={handleClearChat}
-              disabled={isSending}
-              className={`p-2 md:p-3 rounded-xl focus:outline-none transition-all ${isSending
-                ? "bg-gray-700 text-gray-500 cursor-not-allowed"
-                : "bg-rose-900/80 text-rose-300 hover:bg-rose-800"
-                }`}
-              title="Clear chat history"
-            >
-              <FaTrash size={16} className="md:text-lg" />
-            </button>
-            <button
-              type="submit"
-              disabled={isTyping || !message.trim() || isSending}
-              className={`p-2 md:p-3 rounded-xl focus:outline-none transition-all ${isTyping || !message.trim() || isSending
-                ? "bg-gray-700 text-gray-500 cursor-not-allowed"
-                : "bg-gradient-to-r from-blue-600 to-indigo-700 text-white hover:shadow-md"
-                }`}
-            >
-              <FaPaperPlane size={16} className="md:text-lg" />
-            </button>
-          </form>
+        {/* Empty input */}
+        <div className="bg-gray-900 border-t border-gray-800 p-3 md:p-4">
+          <div className="max-w-3xl mx-auto">
+            <div className="h-10 bg-gray-800 border border-gray-700 rounded-xl opacity-50"></div>
+          </div>
         </div>
       </div>
+    );
+  }
 
-      {/* Info overlay */}
-      {showInfo && (
-        <div
-          className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 overflow-hidden animate-fadeIn backdrop-blur-sm"
-          onClick={() => setShowInfo(false)}
+  return (
+    <div className="flex flex-col h-screen bg-gray-950"
+      style={{
+        backgroundImage: `radial-gradient(circle at 25px 25px, rgba(75, 85, 99, 0.1) 2%, transparent 0%), radial-gradient(circle at 75px 75px, rgba(75, 85, 99, 0.15) 2%, transparent 0%)`,
+        backgroundSize: '100px 100px',
+      }}
+    >
+      {/* Header section */}
+      <header className="bg-gray-900 backdrop-blur-sm shadow-md py-2 md:py-4 px-4 md:px-8 flex items-center z-10 border-b border-gray-800 flex-shrink-0">
+        <div className="flex-1 flex items-center">
+          <Link href="/" className="text-blue-400 hover:text-blue-300 flex items-center mr-4 transition-colors">
+            <FaArrowLeft size={20} className="md:text-lg" />
+          </Link>
+          <div className="font-semibold text-lg md:text-xl text-white">{user?.name || 'My Twin'}</div>
+        </div>
+        <div className="flex items-center space-x-1 md:space-x-2">
+          {/* Action buttons */}
+          <button
+            onClick={() => setShowInfo(true)}
+            className="p-2 md:p-2.5 rounded-full hover:bg-gray-800 text-blue-400 transition-colors"
+            aria-label="Twin information"
+          >
+            <FaInfoCircle size={18} className="md:text-lg" />
+          </button>
+          <ProfileButton />
+        </div>
+      </header>
+
+      {/* Main content area */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Sign-up banner for users who are not logged in and have an unclaimed twin */}
+        {!authUser && user && !user.auth_user_id && (
+          <div className="bg-gradient-to-r from-blue-700/90 to-indigo-700/90 backdrop-blur-sm text-white py-3 px-4 flex items-center justify-between border-b border-blue-900">
+            <div className="flex-1">
+              <p className="text-sm md:text-base"><FaUserPlus className="inline-block mr-2" /> Sign up to save your twin and access it anytime!</p>
+            </div>
+            <div className="ml-2">
+              <Link
+                href={`/auth/signup?twinId=${user.id}`}
+                className="bg-white text-blue-700 hover:bg-blue-50 px-4 py-1.5 rounded text-sm font-medium transition-colors shadow-sm flex items-center"
+              >
+                <FaUserPlus className="mr-1.5" size={14} /> Sign Up
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {/* Main chat container */}
+        <div className="flex-1 flex flex-col overflow-hidden bg-gray-950"
+          style={{
+            backgroundImage: `radial-gradient(circle at 25px 25px, rgba(75, 85, 99, 0.1) 2%, transparent 0%), radial-gradient(circle at 75px 75px, rgba(75, 85, 99, 0.15) 2%, transparent 0%)`,
+            backgroundSize: '100px 100px',
+          }}
         >
           <div
-            className="bg-gray-900 rounded-xl shadow-xl p-6 md:p-8 m-4 max-w-4xl w-[90%] max-h-[80vh] overflow-y-auto animate-slideIn custom-scrollbar border border-gray-800"
-            onClick={(e) => e.stopPropagation()}
+            className="flex-1 overflow-y-auto px-4 md:px-8 py-6 space-y-5 md:space-y-7 md:mx-auto md:max-w-3xl lg:max-w-4xl"
+            style={{
+              scrollbarWidth: 'none',  // Firefox
+              msOverflowStyle: 'none',  // IE/Edge
+              WebkitOverflowScrolling: 'touch' // iOS smooth scrolling
+            }}
           >
-            <div className="flex justify-between items-center mb-6 border-b border-gray-800 pb-4">
-              <h3 className="text-xl font-semibold text-white">
-                About This Twin
-              </h3>
-              <button
-                onClick={() => setShowInfo(false)}
-                className="p-1 w-8 h-8 rounded-full bg-gray-800 text-gray-300 flex items-center justify-center hover:bg-gray-700 transition-all duration-200 shadow-sm"
+            <style jsx global>{`
+              /* Hide scrollbar for Chrome, Safari and Opera */
+              .flex-1::-webkit-scrollbar {
+                display: none;
+              }
+            `}</style>
+            {messages.map((message) => (
+              <div
+                key={message.id}
+                className={`flex ${message.isUser ? "justify-end" : "justify-start"
+                  } animate-fadeIn`}
+                style={{ animationDuration: "0.3s" }}
               >
-                ✕
-              </button>
-            </div>
+                <div className={`max-w-[85%] md:max-w-[70%] flex items-start gap-2 md:gap-3 ${message.isUser ? "flex-row-reverse" : "flex-row"
+                  }`}>
+                  {!message.isUser && (
+                    <div className="w-7 h-7 md:w-9 md:h-9 mt-1 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex-shrink-0 flex items-center justify-center text-white text-sm font-medium shadow-md ring-2 ring-gray-900">
+                      {user?.name ? user.name.charAt(0).toUpperCase() : "T"}
+                    </div>
+                  )}
 
-            {/* Edit Bio Button - don't close the info panel */}
-            {authUser && authUser.id === user?.auth_user_id && (
-              <div className="mb-4 flex">
-                <button
-                  onClick={() => {
-                    setShowBioModal(true);
-                    // Don't close the info panel
-                  }}
-                  className="text-blue-400 hover:text-blue-300 text-sm font-medium flex items-center transition-all duration-200 hover:underline"
-                >
-                  Edit Description
-                </button>
+                  <div
+                    className={`rounded-2xl ${message.isUser
+                      ? 'bg-gradient-to-r from-blue-600 to-indigo-700 text-white shadow-lg border border-indigo-900/30'
+                      : 'bg-gray-800 border border-gray-700 text-white shadow-md'
+                      } px-4 py-3 md:px-5 md:py-3.5`}
+                  >
+                    <div className="text-white leading-relaxed text-sm md:text-base">
+                      {message.content.split("\n").map((line, i) => (
+                        <p key={i} className={i > 0 ? "mt-3" : ""}>
+                          {line}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+
+                  {message.isUser && (
+                    <div className="w-7 h-7 md:w-9 md:h-9 mt-1 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex-shrink-0 flex items-center justify-center text-white text-sm font-medium shadow-md ring-2 ring-gray-900">
+                      {authUser ? authUser.name?.charAt(0).toUpperCase() : "Y"}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+
+            {isTyping && (
+              <div className="flex justify-start animate-fadeIn" style={{ animationDuration: "0.3s" }}>
+                <div className="flex items-start max-w-[70%] gap-2 md:gap-3">
+                  <div className="w-7 h-7 md:w-9 md:h-9 mt-1 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex-shrink-0 flex items-center justify-center text-white text-sm font-medium shadow-md ring-2 ring-gray-900">
+                    {user?.name ? user.name.charAt(0).toUpperCase() : "T"}
+                  </div>
+                  <div className="bg-gray-800 border border-gray-700 rounded-2xl px-4 py-3 md:px-5 md:py-3.5 shadow-md">
+                    <div className="flex space-x-2">
+                      <div className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" style={{ animationDuration: "0.8s" }}></div>
+                      <div className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse" style={{ animationDuration: "0.8s", animationDelay: "0.2s" }}></div>
+                      <div className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse" style={{ animationDuration: "0.8s", animationDelay: "0.4s" }}></div>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 
-            {/* Twin Personality Section */}
-            <div className="space-y-6">
-              <div className="mb-6 bg-gray-800 p-5 rounded-xl shadow-md border border-gray-700">
-                <h4 className="text-lg font-semibold text-blue-300 mb-4">
-                  Personality Profile
-                </h4>
+            {/* Scroll to bottom anchor */}
+            <div ref={messagesEndRef} />
+          </div>
 
-                <div className="flex flex-col gap-4 p-4 bg-gray-800/80 rounded-lg border border-gray-700">
-                  <div className="grid gap-4">
-                    <div>
-                      <h3 className="text-lg font-semibold text-white">About {user?.name}</h3>
-                      <div className="mt-3 text-sm text-gray-300 whitespace-pre-wrap leading-relaxed">
-                        {user?.twinPersonality?.summary || "No description available"}
+          {/* Message input - fixed at bottom */}
+          <div className="bg-gray-900 backdrop-blur-sm border-t border-gray-800 p-3 md:p-4 flex-shrink-0 pb-safe">
+            <form
+              onSubmit={onSubmit}
+              className="relative max-w-5xl mx-auto w-full flex items-center space-x-2 md:space-x-4"
+            >
+              <input
+                ref={inputRef}
+                className="flex-1 bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 md:px-4 md:py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all placeholder-gray-500 text-sm md:text-base text-white shadow-inner"
+                placeholder="Type a message..."
+                value={message}
+                onChange={handleMessageChange}
+                disabled={isTyping || isSending}
+              />
+              <button
+                type="submit"
+                disabled={isTyping || !message.trim() || isSending}
+                className={`p-2 md:p-3 rounded-xl focus:outline-none transition-all ${isTyping || !message.trim() || isSending
+                  ? "bg-gray-700 text-gray-500 cursor-not-allowed"
+                  : "bg-gradient-to-r from-blue-600 to-indigo-700 text-white hover:shadow-md"
+                  }`}
+              >
+                <FaPaperPlane size={16} className="md:text-lg" />
+              </button>
+            </form>
+          </div>
+        </div>
+
+        {/* Info overlay */}
+        {showInfo && (
+          <div
+            className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 overflow-hidden animate-fadeIn backdrop-blur-sm"
+            onClick={() => setShowInfo(false)}
+          >
+            <div
+              className="bg-gray-900 rounded-xl shadow-xl p-6 md:p-8 m-4 max-w-4xl w-[90%] max-h-[80vh] overflow-y-auto animate-slideIn custom-scrollbar border border-gray-800"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex justify-between items-center mb-6 border-b border-gray-800 pb-4">
+                <h3 className="text-xl font-semibold text-white">
+                  About This Twin
+                </h3>
+                <button
+                  onClick={() => setShowInfo(false)}
+                  className="p-1 w-8 h-8 rounded-full bg-gray-800 text-gray-300 flex items-center justify-center hover:bg-gray-700 transition-all duration-200 shadow-sm"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Edit Bio Button - don't close the info panel */}
+              {authUser && authUser.id === user?.auth_user_id && (
+                <div className="mb-4 flex">
+                  <button
+                    onClick={() => {
+                      setShowBioModal(true);
+                      // Don't close the info panel
+                    }}
+                    className="text-blue-400 hover:text-blue-300 text-sm font-medium flex items-center transition-all duration-200 hover:underline"
+                  >
+                    Edit Description
+                  </button>
+                </div>
+              )}
+
+              {/* Twin Personality Section */}
+              <div className="space-y-6">
+                <div className="mb-6 bg-gray-800 p-5 rounded-xl shadow-md border border-gray-700">
+                  <h4 className="text-lg font-semibold text-blue-300 mb-4">
+                    Personality Profile
+                  </h4>
+
+                  <div className="flex flex-col gap-4">
+                    <div className="p-4 bg-gray-800/80 rounded-lg border border-gray-700">
+                      <div className="grid gap-4">
+                        <div>
+                          <h3 className="text-lg font-semibold text-white">About {user?.name}</h3>
+                          <div className="mt-3 text-sm text-gray-300 whitespace-pre-wrap leading-relaxed">
+                            {user?.twinPersonality?.summary || "No description available"}
+                          </div>
+                          {authUser && authUser.id === user?.auth_user_id && (
+                            <button
+                              onClick={() => setShowBioModal(true)}
+                              className="mt-3 text-sm text-blue-400 hover:text-blue-300 font-medium"
+                            >
+                              Edit Description
+                            </button>
+                          )}
+                        </div>
                       </div>
-                      {authUser && authUser.id === user?.auth_user_id && (
-                        <button
-                          onClick={() => setShowBioModal(true)}
-                          className="mt-3 text-sm text-blue-400 hover:text-blue-300 font-medium"
-                        >
-                          Edit Description
-                        </button>
+                    </div>
+
+                    {/* Add Emotional Analysis Component */}
+                    <TwinEmotionalAnalysis
+                      twinPersonality={user?.twinPersonality}
+                      messageCount={messages.length}
+                    />
+                  </div>
+                </div>
+
+                {/* Letterboxd Section */}
+                <div className="mb-6 bg-gray-800 p-5 rounded-xl shadow-md border border-gray-700">
+                  <div className="flex justify-between items-center mb-4">
+                    <h4 className="text-lg font-semibold text-amber-300">
+                      Film Preferences
+                    </h4>
+                    {authUser && authUser.id === user?.auth_user_id && (
+                      <button
+                        onClick={() => {
+                          setShowLetterboxdModal(true);
+                          // Don't close the info panel
+                        }}
+                        className="text-blue-400 hover:text-blue-300 text-sm font-medium transition-all duration-200 hover:underline flex items-center"
+                      >
+                        Update
+                      </button>
+                    )}
+                  </div>
+
+                  {user.letterboxd_data?.status === 'success' && user.letterboxd_data.recentRatings && user.letterboxd_data.recentRatings.length > 0 ? (
+                    <div>
+                      <div className="mb-5">
+                        <h5 className="font-medium text-gray-300 mb-2">Recent Ratings</h5>
+                        <div className="space-y-3">
+                          {user.letterboxd_data.recentRatings.slice(0, 5).map((rating, i) => (
+                            <div key={i} className="bg-gray-700/80 p-3 rounded-lg border border-gray-600 flex justify-between items-center hover:bg-gray-700 transition-colors">
+                              <span className="text-white flex-1 font-medium">{rating.title}</span>
+                              <span className="text-amber-400 font-medium flex-shrink-0 ml-2">{getRatingStars(parseFloat(rating.rating))}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {user.letterboxd_data.favoriteGenres && user.letterboxd_data.favoriteGenres.length > 0 && (
+                        <div className="mb-5">
+                          <h5 className="font-medium text-gray-300 mb-2">Favorite Genres</h5>
+                          <div className="flex flex-wrap gap-2">
+                            {user.letterboxd_data.favoriteGenres.map((genre, i) => (
+                              <span key={i} className="bg-gray-700/80 px-3 py-1.5 rounded-full border border-gray-600 text-amber-300 text-sm font-medium shadow-sm">
+                                {genre}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {user.letterboxd_data.favoriteFilms && user.letterboxd_data.favoriteFilms.length > 0 && (
+                        <div>
+                          <h5 className="font-medium text-gray-300 mb-2">Favorite Films</h5>
+                          <div className="space-y-2">
+                            {user.letterboxd_data.favoriteFilms.map((film, i) => (
+                              <div key={i} className="bg-gray-700/80 p-3 rounded-lg border border-gray-600 text-white flex items-center">
+                                <span className="text-amber-400 mr-2">★</span> {film}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
                       )}
                     </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Letterboxd Section */}
-              <div className="mb-6 bg-gray-800 p-5 rounded-xl shadow-md border border-gray-700">
-                <div className="flex justify-between items-center mb-4">
-                  <h4 className="text-lg font-semibold text-amber-300">
-                    Film Preferences
-                  </h4>
-                  {authUser && authUser.id === user?.auth_user_id && (
-                    <button
-                      onClick={() => {
-                        setShowLetterboxdModal(true);
-                        // Don't close the info panel
-                      }}
-                      className="text-blue-400 hover:text-blue-300 text-sm font-medium transition-all duration-200 hover:underline flex items-center"
-                    >
-                      Update
-                    </button>
+                  ) : (
+                    <div className="bg-gray-700/80 p-6 rounded-lg border border-gray-600 text-center">
+                      {authUser && authUser.id === user?.auth_user_id ? (
+                        <div className="text-center">
+                          <p className="text-gray-300 mb-3">No Letterboxd data available.</p>
+                          <button
+                            onClick={() => {
+                              setShowLetterboxdModal(true);
+                              // Don't close the info panel
+                            }}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
+                          >
+                            Connect Letterboxd
+                          </button>
+                        </div>
+                      ) : (
+                        <p className="text-gray-300">No film preferences available for this twin.</p>
+                      )}
+                    </div>
                   )}
                 </div>
 
-                {user.letterboxd_data?.status === 'success' && user.letterboxd_data.recentRatings && user.letterboxd_data.recentRatings.length > 0 ? (
-                  <div>
-                    <div className="mb-5">
-                      <h5 className="font-medium text-gray-300 mb-2">Recent Ratings</h5>
-                      <div className="space-y-3">
-                        {user.letterboxd_data.recentRatings.slice(0, 5).map((rating, i) => (
-                          <div key={i} className="bg-gray-700/80 p-3 rounded-lg border border-gray-600 flex justify-between items-center hover:bg-gray-700 transition-colors">
-                            <span className="text-white flex-1 font-medium">{rating.title}</span>
-                            <span className="text-amber-400 font-medium flex-shrink-0 ml-2">{getRatingStars(parseFloat(rating.rating))}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {user.letterboxd_data.favoriteGenres && user.letterboxd_data.favoriteGenres.length > 0 && (
-                      <div className="mb-5">
-                        <h5 className="font-medium text-gray-300 mb-2">Favorite Genres</h5>
-                        <div className="flex flex-wrap gap-2">
-                          {user.letterboxd_data.favoriteGenres.map((genre, i) => (
-                            <span key={i} className="bg-gray-700/80 px-3 py-1.5 rounded-full border border-gray-600 text-amber-300 text-sm font-medium shadow-sm">
-                              {genre}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {user.letterboxd_data.favoriteFilms && user.letterboxd_data.favoriteFilms.length > 0 && (
-                      <div>
-                        <h5 className="font-medium text-gray-300 mb-2">Favorite Films</h5>
-                        <div className="space-y-2">
-                          {user.letterboxd_data.favoriteFilms.map((film, i) => (
-                            <div key={i} className="bg-gray-700/80 p-3 rounded-lg border border-gray-600 text-white flex items-center">
-                              <span className="text-amber-400 mr-2">★</span> {film}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
+                {/* Spotify Section */}
+                <div className="mb-6 bg-gray-800 p-5 rounded-xl shadow-md border border-gray-700">
+                  <div className="flex justify-between items-center mb-4">
+                    <h4 className="text-lg font-semibold text-green-300">
+                      Music Preferences
+                    </h4>
+                    {authUser && authUser.id === user?.auth_user_id && (
+                      <button
+                        onClick={() => {
+                          setShowSpotifyConnect(true);
+                          // Don't close the info panel
+                        }}
+                        className="text-blue-400 hover:text-blue-300 text-sm font-medium transition-all duration-200 hover:underline flex items-center"
+                      >
+                        Reconnect
+                      </button>
                     )}
                   </div>
-                ) : (
-                  <div className="bg-gray-700/80 p-6 rounded-lg border border-gray-600 text-center">
-                    {authUser && authUser.id === user?.auth_user_id ? (
-                      <div className="text-center">
-                        <p className="text-gray-300 mb-3">No Letterboxd data available.</p>
-                        <button
-                          onClick={() => {
-                            setShowLetterboxdModal(true);
-                            // Don't close the info panel
-                          }}
-                          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
-                        >
-                          Connect Letterboxd
-                        </button>
-                      </div>
-                    ) : (
-                      <p className="text-gray-300">No film preferences available for this twin.</p>
-                    )}
-                  </div>
-                )}
-              </div>
 
-              {/* Spotify Section */}
-              <div className="mb-6 bg-gray-800 p-5 rounded-xl shadow-md border border-gray-700">
-                <div className="flex justify-between items-center mb-4">
-                  <h4 className="text-lg font-semibold text-green-300">
-                    Music Preferences
-                  </h4>
-                  {authUser && authUser.id === user?.auth_user_id && (
-                    <button
-                      onClick={() => {
-                        setShowSpotifyConnect(true);
-                        // Don't close the info panel
-                      }}
-                      className="text-blue-400 hover:text-blue-300 text-sm font-medium transition-all duration-200 hover:underline flex items-center"
-                    >
-                      Reconnect
-                    </button>
-                  )}
-                </div>
-
-                {user.spotify_data?.status === 'success' && user.spotify_data.topArtists && user.spotify_data.topArtists.length > 0 ? (
-                  <div>
-                    <div className="mb-5">
-                      <h5 className="font-medium text-gray-300 mb-2">Top Artists</h5>
-                      <div className="space-y-2">
-                        {user.spotify_data.topArtists.slice(0, 5).map((artist, i) => (
-                          <div key={i} className="bg-gray-700/80 p-3 rounded-lg border border-gray-600 text-white">
-                            {artist}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {user.spotify_data.topGenres && user.spotify_data.topGenres.length > 0 && (
+                  {user.spotify_data?.status === 'success' && user.spotify_data.topArtists && user.spotify_data.topArtists.length > 0 ? (
+                    <div>
                       <div className="mb-5">
-                        <h5 className="font-medium text-gray-300 mb-2">Top Genres</h5>
-                        <div className="flex flex-wrap gap-2">
-                          {user.spotify_data.topGenres.map((genre, i) => (
-                            <span key={i} className="bg-gray-700/80 px-3 py-1 rounded-full border border-gray-600 text-green-300 text-sm">
-                              {genre}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {user.spotify_data.recentTracks && user.spotify_data.recentTracks.length > 0 && (
-                      <div>
-                        <h5 className="font-medium text-gray-300 mb-2">Recent Tracks</h5>
+                        <h5 className="font-medium text-gray-300 mb-2">Top Artists</h5>
                         <div className="space-y-2">
-                          {user.spotify_data.recentTracks.slice(0, 5).map((track, i) => (
+                          {user.spotify_data.topArtists.slice(0, 5).map((artist, i) => (
                             <div key={i} className="bg-gray-700/80 p-3 rounded-lg border border-gray-600 text-white">
-                              <div className="font-medium">{track.name}</div>
-                              <div className="text-sm text-gray-400">{track.artist}</div>
+                              {artist}
                             </div>
                           ))}
                         </div>
                       </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="bg-gray-700/80 p-4 rounded-lg border border-gray-600 text-gray-300">
-                    {authUser && authUser.id === user?.auth_user_id ? (
-                      <div className="text-center">
-                        <p>No Spotify data available.</p>
-                        <button
-                          onClick={() => {
-                            setShowSpotifyConnect(true);
-                            // Don't close the info panel
-                          }}
-                          className="mt-2 px-4 py-2 bg-green-700 hover:bg-green-800 text-white rounded-md text-sm font-medium transition-all duration-200"
-                        >
-                          Connect Spotify
-                        </button>
-                      </div>
-                    ) : (
-                      <p>No music preferences available for this twin.</p>
-                    )}
-                  </div>
-                )}
+
+                      {user.spotify_data.topGenres && user.spotify_data.topGenres.length > 0 && (
+                        <div className="mb-5">
+                          <h5 className="font-medium text-gray-300 mb-2">Top Genres</h5>
+                          <div className="flex flex-wrap gap-2">
+                            {user.spotify_data.topGenres.map((genre, i) => (
+                              <span key={i} className="bg-gray-700/80 px-3 py-1 rounded-full border border-gray-600 text-green-300 text-sm">
+                                {genre}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {user.spotify_data.recentTracks && user.spotify_data.recentTracks.length > 0 && (
+                        <div>
+                          <h5 className="font-medium text-gray-300 mb-2">Recent Tracks</h5>
+                          <div className="space-y-2">
+                            {user.spotify_data.recentTracks.slice(0, 5).map((track, i) => (
+                              <div key={i} className="bg-gray-700/80 p-3 rounded-lg border border-gray-600 text-white">
+                                <div className="font-medium">{track.name}</div>
+                                <div className="text-sm text-gray-400">{track.artist}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="bg-gray-700/80 p-4 rounded-lg border border-gray-600 text-gray-300">
+                      {authUser && authUser.id === user?.auth_user_id ? (
+                        <div className="text-center">
+                          <p>No Spotify data available.</p>
+                          <button
+                            onClick={() => {
+                              setShowSpotifyConnect(true);
+                              // Don't close the info panel
+                            }}
+                            className="mt-2 px-4 py-2 bg-green-700 hover:bg-green-800 text-white rounded-md text-sm font-medium transition-all duration-200"
+                          >
+                            Connect Spotify
+                          </button>
+                        </div>
+                      ) : (
+                        <p>No music preferences available for this twin.</p>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Modals with increased z-index */}
-      {showEditBio && user && (
-        <DescriptionEditModal
-          isOpen={showEditBio}
-          onClose={() => setShowEditBio(false)}
-          currentBio={user.twinPersonality?.summary || ''}
-          twinId={String(user.id)}
-          onUpdate={(updatedBio) => {
-            setShowEditBio(false);
-            router.refresh();
-          }}
-        />
-      )}
+        {/* Modals with increased z-index */}
+        {showEditBio && user && (
+          <DescriptionEditModal
+            isOpen={showEditBio}
+            onClose={() => setShowEditBio(false)}
+            currentBio={user.twinPersonality?.summary || ''}
+            twinId={String(user.id)}
+            onUpdate={(updatedBio) => {
+              setShowEditBio(false);
+              router.refresh();
+            }}
+          />
+        )}
 
-      {showLetterboxdModal && user && (
-        <LetterboxdEditModal
-          isOpen={showLetterboxdModal}
-          onClose={() => setShowLetterboxdModal(false)}
-          currentLetterboxdUrl={user.letterboxd_url || ''}
-          twinId={String(user.id)}
-          onUpdate={() => {
-            setShowLetterboxdModal(false);
-            router.refresh();
-          }}
-        />
-      )}
+        {showLetterboxdModal && user && (
+          <LetterboxdEditModal
+            isOpen={showLetterboxdModal}
+            onClose={() => setShowLetterboxdModal(false)}
+            currentLetterboxdUrl={user.letterboxd_url || ''}
+            twinId={String(user.id)}
+            onUpdate={() => {
+              setShowLetterboxdModal(false);
+              router.refresh();
+            }}
+          />
+        )}
 
-      {showSpotifyConnect && user && (
-        <SpotifyConnectModal
-          isOpen={showSpotifyConnect}
-          onClose={() => setShowSpotifyConnect(false)}
-          twinId={String(user.id)}
-          onConnect={() => {
-            setShowSpotifyConnect(false);
-            router.refresh();
-          }}
-        />
-      )}
+        {showSpotifyConnect && user && (
+          <SpotifyConnectModal
+            isOpen={showSpotifyConnect}
+            onClose={() => setShowSpotifyConnect(false)}
+            twinId={String(user.id)}
+            onConnect={() => {
+              setShowSpotifyConnect(false);
+              router.refresh();
+            }}
+          />
+        )}
 
-      {showBioModal && user && params.id && (
-        <DescriptionEditModal
-          isOpen={showBioModal}
-          onClose={() => setShowBioModal(false)}
-          currentBio={user.twinPersonality?.summary || ''}
-          twinId={typeof params.id === 'string' ? params.id : params.id[0]}
-          onUpdate={(updatedBio) => {
-            // Update the local state with the new description
-            const updatedUser = { ...user };
-            if (updatedUser.twinPersonality) {
-              updatedUser.twinPersonality.summary = updatedBio;
-            } else {
-              // Create a complete personality object with the required properties
-              updatedUser.twinPersonality = {
-                summary: updatedBio,
-                traits: [],
-                interests: [],
-                style: ''
-              };
-            }
-            setUser(updatedUser);
-          }}
-        />
-      )}
+        {showBioModal && user && params.id && (
+          <DescriptionEditModal
+            isOpen={showBioModal}
+            onClose={() => setShowBioModal(false)}
+            currentBio={user.twinPersonality?.summary || ''}
+            twinId={typeof params.id === 'string' ? params.id : params.id[0]}
+            onUpdate={(updatedBio) => {
+              // Update the local state with the new description
+              const updatedUser = { ...user };
+              if (updatedUser.twinPersonality) {
+                updatedUser.twinPersonality.summary = updatedBio;
+              } else {
+                // Create a complete personality object with the required properties
+                updatedUser.twinPersonality = {
+                  summary: updatedBio,
+                  traits: [],
+                  interests: [],
+                  style: ''
+                };
+              }
+              setUser(updatedUser);
+            }}
+          />
+        )}
+      </div>
     </div>
   );
 } 

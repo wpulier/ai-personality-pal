@@ -3,6 +3,8 @@ import { createMessage, getTwin } from '@/lib/services/twin-service';
 import { z } from 'zod';
 import { createClient } from '@supabase/supabase-js';
 import { streamChatResponse } from '@/lib/services/streamChatResponse';
+import { generateFromTemplate, detectParentMention, detectResponse } from '@/lib/templates/conversation-templates';
+import { getConversationState, updateConversationState } from '@/lib/services/conversation-state';
 
 // Schema for message request
 const messageSchema = z.object({
@@ -62,7 +64,7 @@ export async function POST(
 
     // Save user message
     console.log('Saving user message');
-    const { data: userMessage, error: userMsgError } = await adminClient
+    const { data: savedUserMessage, error: userMessageError } = await adminClient
       .from('messages')
       .insert({
         twin_id: twinId,
@@ -72,97 +74,227 @@ export async function POST(
       .select()
       .single();
 
-    if (userMsgError) {
-      console.error('Error saving user message:', userMsgError);
+    if (userMessageError) {
+      console.error('Error saving user message:', userMessageError);
       return NextResponse.json({ error: 'Failed to save user message' }, { status: 500 });
     }
 
     // Get previous messages for context
-    console.log('Fetching previous messages for context');
-    const { data: previousMessages, error: msgHistoryError } = await adminClient
+    console.log('Fetching message history');
+    const { data: messageHistory, error: historyError } = await adminClient
       .from('messages')
       .select('*')
       .eq('twin_id', twinId)
-      .order('created_at', { ascending: true })
+      .order('created_at', { ascending: false })
       .limit(10);
 
-    if (msgHistoryError) {
-      console.error('Error fetching message history:', msgHistoryError);
-      // Continue with empty history if there's an error
+    if (historyError) {
+      console.error('Error fetching message history:', historyError);
+      // Continue anyway with empty history
     }
 
-    // Format messages for OpenAI - make sure is_user field is correctly used
-    const chatHistory = (previousMessages || []).map(msg => ({
-      content: msg.content,
-      isUser: !!msg.is_user // Convert to boolean
-    }));
+    // Format message history for the conversation
+    const formattedHistory = (messageHistory || [])
+      .map(msg => ({
+        content: msg.content,
+        isUser: !!msg.is_user
+      }))
+      .reverse();
 
-    // Add the current message
-    chatHistory.push({
-      content: validatedData.content,
-      isUser: true
-    });
+    // Get the current conversation state
+    const conversationState = await getConversationState(twinId);
+    if (!conversationState) {
+      console.warn(`No conversation state found for twin ${twinId}, using standard conversation flow`);
 
-    // Generate AI response using the new streamChatResponse function that handles twin data consistently
-    console.log('Generating AI response');
-    try {
+      // Default to the standard conversation flow
+      console.log('Using standard conversation flow');
       const aiResponse = await streamChatResponse(
         twinId,
         validatedData.content,
-        chatHistory,
-        twin // Pass the complete twin data object
+        formattedHistory,
+        twin
       );
 
-      // Process the response
-      let responseText = '';
-      for await (const chunk of aiResponse) {
-        if (chunk && chunk.choices && chunk.choices[0]?.delta) {
-          responseText += chunk.choices[0]?.delta?.content || '';
-        }
-      }
+      const responseContent = await processStreamingResponse(aiResponse);
 
-      // Save AI response
-      console.log('Saving AI response');
-      const { data: assistantMessage, error: aiMsgError } = await adminClient
+      // Save AI response message
+      console.log('Saving AI response message');
+      const { data: savedAiMessage, error: aiMessageError } = await adminClient
         .from('messages')
         .insert({
           twin_id: twinId,
-          content: responseText,
+          content: responseContent || "I'm not sure how to respond to that.",
           is_user: false
         })
         .select()
         .single();
 
-      if (aiMsgError) {
-        console.error('Error saving AI response:', aiMsgError);
+      if (aiMessageError) {
+        console.error('Error saving AI message:', aiMessageError);
         return NextResponse.json({ error: 'Failed to save AI response' }, { status: 500 });
       }
 
-      // Return both messages
-      return NextResponse.json({
-        userMessage,
-        assistantMessage
-      }, { status: 201 });
-    } catch (aiError) {
-      console.error('Error generating AI response:', aiError);
-      return NextResponse.json({ 
-        error: 'Failed to generate AI response',
-        userMessage // Return the user message anyway
-      }, { status: 500 });
+      // Check if we need to update emotional analysis
+      // We do this here to avoid extra API calls from the client
+      try {
+        // Get current message count to see if we've hit a multiple of 10
+        const { count, error: countError } = await adminClient
+          .from('messages')
+          .select('*', { count: 'exact', head: true })
+          .eq('twin_id', twinId);
+
+        if (!countError && count && count % 10 === 0) {
+          console.log(`Message count hit ${count}, updating emotional analysis`);
+
+          // Trigger the emotional analysis update
+          await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/twins/${twinId}/emotional-analysis`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            }
+          });
+        }
+      } catch (analysisError) {
+        // Don't let this error affect the response
+        console.error('Error checking for emotional analysis update:', analysisError);
+      }
+
+      // Return the saved AI message
+      return NextResponse.json(savedAiMessage, { status: 201 });
     }
+
+    // Based on the user message, update the conversation state
+    const updatedState = await updateConversationState(twinId, validatedData.content, conversationState);
+
+    // Determine if we should use structured conversation or normal flow
+    let responseContent: string;
+
+    if (updatedState && ['INITIAL', 'YES_RESPONSE', 'NO_RESPONSE', 'DIGGING_DEEPER', 'PARENT_MENTION', 'CLOSURE'].includes(updatedState.currentPhase)) {
+      // We're in a structured conversation flow
+      console.log(`Using structured conversation flow: ${updatedState.currentPhase}`);
+
+      // Extract twin personality
+      const twinPersonality = twin.twin_personality || {};
+
+      // Based on the current phase, generate appropriate response using templates
+      switch (updatedState.currentPhase) {
+        case 'YES_RESPONSE':
+          responseContent = generateFromTemplate('YES_RESPONSE', {});
+          break;
+
+        case 'NO_RESPONSE':
+          responseContent = generateFromTemplate('NO_RESPONSE', {});
+          break;
+
+        case 'DIGGING_DEEPER':
+          responseContent = generateFromTemplate('DIG_DEEPER', {
+            emotionalPattern: twinPersonality.emotionalPatterns?.[0] || 'emotionally nuanced',
+            hiddenTrait: twinPersonality.hiddenTraits?.[0] || 'keep certain aspects of yourself private'
+          });
+          break;
+
+        case 'PARENT_MENTION':
+          responseContent = generateFromTemplate('PARENT_MENTION', {});
+          break;
+
+        case 'CLOSURE':
+          responseContent = generateFromTemplate('CLOSURE', {});
+          break;
+
+        default:
+          // If we're in an unexpected state or INITIAL, use the standard flow
+          // This shouldn't happen in normal operation but provides a fallback
+          const aiResponse = await streamChatResponse(
+            twinId,
+            validatedData.content,
+            formattedHistory,
+            twin
+          );
+
+          responseContent = await processStreamingResponse(aiResponse);
+      }
+    } else {
+      // Default to the standard conversation flow
+      console.log('Using standard conversation flow');
+      const aiResponse = await streamChatResponse(
+        twinId,
+        validatedData.content,
+        formattedHistory,
+        twin
+      );
+
+      responseContent = await processStreamingResponse(aiResponse);
+    }
+
+    // Save AI response message
+    console.log('Saving AI response message');
+    const { data: savedAiMessage, error: aiMessageError } = await adminClient
+      .from('messages')
+      .insert({
+        twin_id: twinId,
+        content: responseContent || "I'm not sure how to respond to that.",
+        is_user: false
+      })
+      .select()
+      .single();
+
+    if (aiMessageError) {
+      console.error('Error saving AI message:', aiMessageError);
+      return NextResponse.json({ error: 'Failed to save AI response' }, { status: 500 });
+    }
+
+    // Check if we need to update emotional analysis
+    // We do this here to avoid extra API calls from the client
+    try {
+      // Get current message count to see if we've hit a multiple of 10
+      const { count, error: countError } = await adminClient
+        .from('messages')
+        .select('*', { count: 'exact', head: true })
+        .eq('twin_id', twinId);
+
+      if (!countError && count && count % 10 === 0) {
+        console.log(`Message count hit ${count}, updating emotional analysis`);
+
+        // Trigger the emotional analysis update
+        await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/twins/${twinId}/emotional-analysis`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        });
+      }
+    } catch (analysisError) {
+      // Don't let this error affect the response
+      console.error('Error checking for emotional analysis update:', analysisError);
+    }
+
+    // Return the saved AI message
+    return NextResponse.json(savedAiMessage, { status: 201 });
   } catch (error) {
-    console.error('Error processing message:', error);
-    
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ 
-        error: 'Validation error', 
-        details: error.errors 
-      }, { status: 400 });
-    }
-    
-    return NextResponse.json({ 
-      error: 'Failed to process message',
+    console.error('Error in message route:', error);
+    return NextResponse.json({
+      error: 'Error processing message',
       details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
   }
+}
+
+// Helper function to process streaming response
+async function processStreamingResponse(aiResponse: any): Promise<string> {
+  let responseText = '';
+
+  try {
+    if (aiResponse) {
+      for await (const chunk of aiResponse) {
+        if (chunk && chunk.choices && chunk.choices[0]?.delta) {
+          responseText += chunk.choices[0].delta.content || '';
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error processing streaming response:', error);
+    responseText = "I'm not sure how to respond to that right now.";
+  }
+
+  return responseText;
 } 

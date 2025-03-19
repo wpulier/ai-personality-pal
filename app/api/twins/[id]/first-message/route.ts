@@ -2,6 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createMessage, getTwin } from '@/lib/services/twin-service';
 import { streamChatResponse } from '@/lib/services/streamChatResponse';
 import { createClient } from '@supabase/supabase-js';
+import { generateFromTemplate } from '@/lib/templates/conversation-templates';
+import { resetConversationState } from '@/lib/services/conversation-state';
+import OpenAI from 'openai';
+
+// Initialize OpenAI client
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
 
 export async function POST(
   request: NextRequest,
@@ -34,7 +42,7 @@ export async function POST(
       .select('*')
       .eq('id', twinId)
       .single();
-      
+
     if (twinError || !twin) {
       console.error('Twin not found:', twinError);
       return NextResponse.json({ error: 'Twin not found' }, { status: 404 });
@@ -46,7 +54,7 @@ export async function POST(
       .from('messages')
       .select('*', { count: 'exact', head: true })
       .eq('twin_id', twinId);
-    
+
     if (countError) {
       console.error('Error checking for existing messages:', countError);
     } else if (count && count > 0) {
@@ -54,103 +62,94 @@ export async function POST(
       return NextResponse.json({ error: 'First message already exists' }, { status: 400 });
     }
 
-    // Create a context-aware prompt for the LLM
-    console.log('Creating first message prompt');
-    const prompt = `You are ${twin.name}'s digital twin - you ARE ${twin.name}, talking to yourself. Start the conversation with a friendly, personalized greeting or question that reflects your shared interests. Your message should be 1-2 sentences.
+    // Reset conversation state to ensure we start fresh
+    await resetConversationState(twinId);
 
-CRITICAL ROLEPLAY INSTRUCTIONS:
-- You ARE the user talking to themselves - use "we", "our", "us" language, NOT "you" or "your" which implies you're a different person
-- Speak as if talking to another version of yourself - like "Hey me!" or "So, what are we thinking about our favorite [interest] lately?"
-- Never say things like "I noticed you like..." or "What's your favorite..." as this breaks the roleplay
-- Instead use phrases like "We've been into [specific artist/film] lately, haven't we?" or "Should we revisit [specific interest] soon?"
-- Remember: this is a conversation with yourself, not with a separate AI assistant
+    // Extract twin personality for use in template
+    const twinPersonality = twin.twin_personality || {};
+
+    // Prepare data for template filling
+    const letterboxdAvailable = twin.letterboxd_data?.status === 'success';
+    const spotifyAvailable = twin.spotify_data?.status === 'success';
+
+    // Create a system prompt that guides the LLM to naturally incorporate the template structure
+    const systemPrompt = `You are ${twin.name}'s digital twin - you ARE ${twin.name}, talking to yourself. Your first message should follow this natural structure while incorporating your personality data:
+
+1. Start with a friendly greeting that introduces you as their digital twin
+2. Explain what a digital twin is in a conversational way
+3. Share insights you've gathered about them from their data
+4. Make a CHALLENGING observation about their career and what it reveals about their deeper psychological motivations
+5. End with EXACTLY this question: "Does that resonate with you?"
+
+CRITICAL GUIDELINES:
+- You ARE the user talking to themselves - use "we", "our", "us" language
+- Speak naturally and conversationally, not like a template
+- Incorporate specific details from their data (Spotify, Letterboxd, personality)
+- Make the career observation feel personal, insightful, and slightly uncomfortable
+- Do NOT ask any other questions at the end - ONLY use "Does that resonate with you?"
 
 PERSONALIZATION DATA:
-IF Spotify data is available (${twin.spotify_data?.status === 'success' ? 'YES' : 'NO'}):
-- Top artists: ${twin.spotify_data?.topArtists?.join(', ') || 'None available'}
-- Top genres: ${twin.spotify_data?.topGenres?.join(', ') || 'None available'}
-- Recent tracks: ${twin.spotify_data?.recentTracks?.slice(0, 3).map((t: any) => `${t.name} by ${t.artist}`).join(', ') || 'None available'}
-Reference specific music preferences in your self-conversation.
+Career Information: "${twin.bio}"
 
-IF Letterboxd data is available (${twin.letterboxd_data?.status === 'success' ? 'YES' : 'NO'}):
-- Favorite films: ${twin.letterboxd_data?.favoriteFilms?.join(', ') || 'None available'}
-- Favorite genres: ${twin.letterboxd_data?.favoriteGenres?.join(', ') || 'None available'}
-- Recent ratings: ${twin.letterboxd_data?.recentRatings?.slice(0, 3).map((r: any) => `${r.title} (${r.rating}/10)`).join(', ') || 'None available'}
-Reference specific film preferences in your self-conversation.
+Personality Summary: "${twinPersonality.summary || 'Not available'}"
 
-Bio: "${twin.bio}"
+Interests: ${twinPersonality.interests?.join(', ') || 'Not specified'}
 
-EXAMPLES OF GOOD RESPONSES:
-- "Hey me! Been thinking about our love for [specific artist] lately. Should we dive into their new album or revisit our old favorite?"
-- "So we gave [specific film] a high rating - definitely one of our best watches this year. What should we check out next in that genre?"
-- "Hmm, we've been on a [genre] kick lately, haven't we? Wonder what's drawing us to that vibe right now."`;
+Traits: ${twinPersonality.traits?.join(', ') || 'Not specified'}
 
-    try {
-      // Generate AI response using the improved streamChatResponse function
-      console.log('Generating first message using streamChatResponse');
-      const aiResponse = await streamChatResponse(
-        twinId,
-        prompt,
-        [{ content: prompt, isUser: true }],
-        twin
-      );
-      
-      // Process the response
-      let responseText = '';
-      if (aiResponse) {
-        for await (const chunk of aiResponse) {
-          if (chunk && chunk.choices && chunk.choices[0]?.delta) {
-            responseText += chunk.choices[0].delta.content || '';
-          }
-        }
-      }
-      
-      console.log(`Generated first message: "${responseText.substring(0, 50)}..."`);
-      
-      // Save the AI message to the database using admin client
-      const { data: newMessage, error: insertError } = await adminClient
-        .from('messages')
-        .insert({
-          twin_id: twinId,
-          content: responseText || "Hey there! What's been on our mind lately?",
-          is_user: false
-        })
-        .select()
-        .single();
-      
-      if (insertError) {
-        console.error('Error saving first message:', insertError);
-        return NextResponse.json({ error: 'Failed to save first message' }, { status: 500 });
-      }
-      
-      // Return the new message
-      return NextResponse.json(newMessage, { status: 201 });
-    } catch (error) {
-      console.error('Error generating AI response:', error);
-      
-      // Create a fallback message if AI generation fails
-      const fallbackMessage = "Hey there! I'm your digital twin. What's been on our mind lately?";
-      
-      const { data: newMessage, error: insertError } = await adminClient
-        .from('messages')
-        .insert({
-          twin_id: twinId,
-          content: fallbackMessage,
-          is_user: false
-        })
-        .select()
-        .single();
-      
-      if (insertError) {
-        console.error('Error saving fallback message:', insertError);
-        return NextResponse.json({ error: 'Failed to save fallback message' }, { status: 500 });
-      }
-      
-      return NextResponse.json(newMessage, { status: 201 });
+${letterboxdAvailable ? `
+Movie Preferences:
+- Favorite films: ${twin.letterboxd_data.favoriteFilms?.join(', ')}
+- Favorite genres: ${twin.letterboxd_data.favoriteGenres?.join(', ')}
+- Recent ratings: ${twin.letterboxd_data.recentRatings?.slice(0, 3).map((r: any) => `${r.title} (${r.rating}/10)`).join(', ')}
+` : ''}
+
+${spotifyAvailable ? `
+Music Preferences:
+- Top artists: ${twin.spotify_data.topArtists?.join(', ')}
+- Top genres: ${twin.spotify_data.topGenres?.join(', ')}
+- Recent tracks: ${twin.spotify_data.recentTracks?.slice(0, 3).map((t: any) => `${t.name} by ${t.artist}`).join(', ')}
+` : ''}
+
+Remember: This is a conversation with yourself. Make it feel natural and personal, while following the structure above.`;
+
+    // Generate the first message using the system prompt
+    const response = await openai.chat.completions.create({
+      model: "gpt-4",
+      messages: [
+        { role: "system", content: systemPrompt }
+      ],
+      temperature: 0.7,
+      max_tokens: 500
+    });
+
+    const firstMessage = response.choices[0]?.message?.content;
+
+    if (!firstMessage) {
+      console.error('Failed to generate first message');
+      return NextResponse.json({ error: 'Failed to generate first message' }, { status: 500 });
     }
+
+    // Save the first message
+    const { data: savedMessage, error: saveError } = await adminClient
+      .from('messages')
+      .insert({
+        twin_id: twinId,
+        content: firstMessage,
+        is_user: false
+      })
+      .select()
+      .single();
+
+    if (saveError) {
+      console.error('Error saving first message:', saveError);
+      return NextResponse.json({ error: 'Failed to save first message' }, { status: 500 });
+    }
+
+    return NextResponse.json(savedMessage, { status: 201 });
   } catch (error) {
     console.error('Error generating first message:', error);
-    return NextResponse.json({ 
+    return NextResponse.json({
       error: 'Failed to generate first message',
       details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
